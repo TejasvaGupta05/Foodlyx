@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
+import { SubscriptionProvider } from './context/SubscriptionContext';
 import { useEffect, useState } from 'react';
 import Navbar from './components/Navbar';
 import Landing from './pages/Landing';
@@ -9,6 +10,8 @@ import DonorDashboard from './pages/DonorDashboard';
 import NGODashboard from './pages/NGODashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import LiveFeed from './pages/LiveFeed';
+import SubscriptionPlans from './pages/SubscriptionPlans';
+import SubscriptionHistory from './pages/SubscriptionHistory';
 
 function ProtectedRoute({ children, allowedRoles }) {
   const { user } = useAuth();
@@ -38,30 +41,34 @@ export default function App() {
   };
 
   return (
-    <BrowserRouter>
-      <Navbar theme={theme} onToggleTheme={toggleTheme} />
-      <Routes>
-        <Route path="/" element={<Landing />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/feed" element={<LiveFeed />} />
-        <Route path="/donor" element={
-          <ProtectedRoute allowedRoles={['donor']}>
-            <DonorDashboard />
-          </ProtectedRoute>
-        } />
-        <Route path="/ngo" element={
-          <ProtectedRoute allowedRoles={['ngo', 'animal_shelter', 'compost_unit']}>
-            <NGODashboard />
-          </ProtectedRoute>
-        } />
-        <Route path="/admin" element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <AdminDashboard />
-          </ProtectedRoute>
-        } />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+    <SubscriptionProvider>
+      <BrowserRouter>
+        <Navbar theme={theme} onToggleTheme={toggleTheme} />
+        <Routes>
+          <Route path="/" element={<Landing />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/feed" element={<LiveFeed />} />
+          <Route path="/subscription-plans" element={<SubscriptionPlans />} />
+          <Route path="/subscription-history" element={<SubscriptionHistory />} />
+          <Route path="/donor" element={
+            <ProtectedRoute allowedRoles={['donor']}>
+              <DonorDashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/ngo" element={
+            <ProtectedRoute allowedRoles={['ngo', 'animal_shelter', 'compost_unit']}>
+              <NGODashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/admin" element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AdminDashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </SubscriptionProvider>
   );
 }
