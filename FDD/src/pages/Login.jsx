@@ -55,6 +55,8 @@ export default function Login() {
     login(data);
     if (data.role === 'donor') navigate('/donor');
     else if (data.role === 'admin') navigate('/admin');
+    else if (data.role === 'animal_shelter') navigate('/shelter');
+    else if (data.role === 'compost_unit') navigate('/compost');
     else navigate(`/${data.role}`); // Default to role-based route
   };
 

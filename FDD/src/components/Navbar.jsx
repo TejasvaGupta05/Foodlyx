@@ -13,7 +13,9 @@ export default function Navbar({ theme, onToggleTheme }) {
   const dashboardLink = () => {
     if (!user) return '/login';
     if (user.role === 'donor') return '/donor';
-    if (user.role === 'ngo' || user.role === 'animal_shelter' || user.role === 'compost_unit') return '/ngo';
+    if (user.role === 'ngo') return '/ngo';
+    if (user.role === 'animal_shelter') return '/shelter';
+    if (user.role === 'compost_unit') return '/compost';
     if (user.role === 'admin') return '/admin';
     return '/';
   };
@@ -31,6 +33,9 @@ export default function Navbar({ theme, onToggleTheme }) {
 
         {/* Desktop nav */}
         <div className="hidden md:flex items-center gap-4">
+          <Link to="/community" className="flex items-center gap-1.5 text-sm text-green-300/70 hover:text-green-300 transition-colors">
+            <Radio className="w-4 h-4" /> Community
+          </Link>
           <Link to="/feed" className="flex items-center gap-1.5 text-sm text-green-300/70 hover:text-green-300 transition-colors">
             <Radio className="w-4 h-4" /> Live Feed
           </Link>
@@ -82,7 +87,10 @@ export default function Navbar({ theme, onToggleTheme }) {
       {open && (
         <div className="md:hidden px-4 pb-4 pt-1 flex flex-col gap-3 border-t border-green-900/30">
           <div className="flex items-center justify-between">
-            <Link to="/feed" className="text-sm text-green-300/70" onClick={() => setOpen(false)}>Live Feed</Link>
+            <div className="flex gap-4">
+              <Link to="/community" className="text-sm text-green-300/70" onClick={() => setOpen(false)}>Community</Link>
+              <Link to="/feed" className="text-sm text-green-300/70" onClick={() => setOpen(false)}>Live Feed</Link>
+            </div>
             <button
               onClick={onToggleTheme}
               className="flex items-center justify-center w-8 h-8 rounded-full border border-green-500/30 bg-black/20 text-green-300 hover:bg-green-500/20 transition-colors"

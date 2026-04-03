@@ -12,6 +12,9 @@ import AdminDashboard from './pages/AdminDashboard';
 import LiveFeed from './pages/LiveFeed';
 import SubscriptionPlans from './pages/SubscriptionPlans';
 import SubscriptionHistory from './pages/SubscriptionHistory';
+import AnimalShelterDashboard from './pages/AnimalShelterDashboard';
+import CompostUnitDashboard from './pages/CompostUnitDashboard';
+import Community from './pages/Community';
 
 function ProtectedRoute({ children, allowedRoles }) {
   const { user } = useAuth();
@@ -49,6 +52,7 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/feed" element={<LiveFeed />} />
+          <Route path="/community" element={<Community />} />
           <Route path="/subscription-plans" element={<SubscriptionPlans />} />
           <Route path="/subscription-history" element={<SubscriptionHistory />} />
           <Route path="/donor" element={
@@ -59,6 +63,16 @@ export default function App() {
           <Route path="/ngo" element={
             <ProtectedRoute allowedRoles={['ngo', 'animal_shelter', 'compost_unit']}>
               <NGODashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/compost" element={
+            <ProtectedRoute allowedRoles={['compost_unit']}>
+              <CompostUnitDashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/shelter" element={
+            <ProtectedRoute allowedRoles={['animal_shelter']}>
+              <AnimalShelterDashboard />
             </ProtectedRoute>
           } />
           <Route path="/admin" element={
