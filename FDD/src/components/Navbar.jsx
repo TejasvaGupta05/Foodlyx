@@ -1,9 +1,9 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Leaf, LogOut, LayoutDashboard, Radio, Menu, X } from 'lucide-react';
+import { Leaf, LogOut, LayoutDashboard, Radio, Menu, X, Moon, Sun } from 'lucide-react';
 import { useState } from 'react';
 
-export default function Navbar() {
+export default function Navbar({ theme, onToggleTheme }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -34,6 +34,13 @@ export default function Navbar() {
           <Link to="/feed" className="flex items-center gap-1.5 text-sm text-green-300/70 hover:text-green-300 transition-colors">
             <Radio className="w-4 h-4" /> Live Feed
           </Link>
+          <button
+            onClick={onToggleTheme}
+            className="flex items-center justify-center w-9 h-9 rounded-full border border-green-500/30 bg-black/20 text-green-300 hover:bg-green-500/20 transition-colors"
+            aria-label="Toggle theme"
+          >
+            {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+          </button>
           {user ? (
             <>
               <Link
@@ -74,7 +81,16 @@ export default function Navbar() {
       {/* Mobile menu */}
       {open && (
         <div className="md:hidden px-4 pb-4 pt-1 flex flex-col gap-3 border-t border-green-900/30">
-          <Link to="/feed" className="text-sm text-green-300/70" onClick={() => setOpen(false)}>Live Feed</Link>
+          <div className="flex items-center justify-between">
+            <Link to="/feed" className="text-sm text-green-300/70" onClick={() => setOpen(false)}>Live Feed</Link>
+            <button
+              onClick={onToggleTheme}
+              className="flex items-center justify-center w-8 h-8 rounded-full border border-green-500/30 bg-black/20 text-green-300 hover:bg-green-500/20 transition-colors"
+              aria-label="Toggle theme"
+            >
+              {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+            </button>
+          </div>
           {user ? (
             <>
               <Link to={dashboardLink()} className="text-sm text-green-300/70" onClick={() => setOpen(false)}>Dashboard</Link>

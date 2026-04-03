@@ -79,6 +79,119 @@ body {
 
 .fade-in { animation: fadeInUp 0.5s ease forwards; }
 
+/* Light theme overrides */
+html.light {
+  --primary: #047857;
+  --primary-dark: #065f46;
+  --primary-light: #6ee7b7;
+  --accent: #d97706;
+  --accent-dark: #b45309;
+  --bg-dark: #f4faf7;
+  --bg-card: #ffffff;
+  --bg-card2: #edf7ee;
+  --border: rgba(16, 185, 129, 0.2);
+  --text-primary: #08331e;
+  --text-secondary: #166534;
+  --text-muted: #4d7c63;
+}
+
+html.light body {
+  background-color: var(--bg-dark);
+  color: var(--text-primary);
+}
+
+html.light .glass {
+  background: rgba(255, 255, 255, 0.75);
+  border-color: var(--border);
+}
+
+html.light .gradient-text {
+  background: linear-gradient(135deg, #16a34a 0%, #0f766e 50%, #d97706 100%);
+}
+
+html.light .text-white {
+  color: var(--text-primary);
+}
+
+html.light .text-green-300,
+html.light .text-green-400,
+html.light .text-green-300/60,
+html.light .text-green-400/60 {
+  color: var(--text-secondary);
+}
+
+html.light .text-amber-400 {
+  color: var(--accent);
+}
+
+html.light .text-blue-400 {
+  color: #2563eb;
+}
+
+html.light .text-red-400,
+html.light .text-red-400/70 {
+  color: #dc2626;
+}
+
+html.light .bg-green-600 {
+  background-color: var(--primary);
+}
+
+html.light .bg-green-500 {
+  background-color: var(--primary-dark);
+}
+
+html.light .border-green-500/20,
+html.light .border-green-500/30,
+html.light .border-green-500/40 {
+  border-color: var(--border);
+}
+
+html.light .bg-green-500/10,
+html.light .bg-green-500/20,
+html.light .bg-green-500/30 {
+  background-color: rgba(16, 185, 129, 0.1);
+}
+
+html.light .bg-amber-500/10,
+html.light .bg-amber-500/20 {
+  background-color: rgba(245, 158, 11, 0.1);
+}
+
+html.light .bg-blue-500/10,
+html.light .bg-blue-500/20 {
+  background-color: rgba(59, 130, 246, 0.1);
+}
+
+html.light .hero-bg {
+  background: radial-gradient(ellipse at top left, rgba(16, 185, 129, 0.1) 0%, transparent 50%),
+              radial-gradient(ellipse at bottom right, rgba(245, 158, 11, 0.05) 0%, transparent 50%),
+              var(--bg-dark);
+}
+
+html.light ::-webkit-scrollbar-track {
+  background: var(--bg-card);
+}
+
+html.light .bg-black\/30 {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Carousel animation */
+.carousel-track {
+  animation: marquee 40s linear infinite;
+}
+
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.carousel-container {
+  mask-image: linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%);
+}
+
 /* Leaflet map fix */
 .leaflet-container {
   background: var(--bg-card);

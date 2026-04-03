@@ -35,6 +35,20 @@ const roles = [
   },
 ];
 
+const carouselImageFiles = [
+  'WhatsApp Image 2026-04-03 at 10.56.08 PM.jpeg',
+  'WhatsApp Image 2026-04-03 at 10.56.10 PM.jpeg',
+  'WhatsApp Image 2026-04-03 at 10.56.11 PM.jpeg',
+  'WhatsApp Image 2026-04-03 at 10.56.12 PM.jpeg',
+  'WhatsApp Image 2026-04-03 at 10.56.21 PM.jpeg',
+  'WhatsApp Image 2026-04-03 at 10.56.22 PM.jpeg',
+  'WhatsApp Image 2026-04-03 at 10.56.23 PM.jpeg',
+  'WhatsApp Image 2026-04-03 at 10.56.24 PM.jpeg',
+  'WhatsApp Image 2026-04-03 at 10.58.13 PM.jpeg',
+];
+
+const carouselImages = carouselImageFiles.map((file) => new URL(`../assets/image/${file}`, import.meta.url).href);
+
 function Counter({ target }) {
   const [count, setCount] = useState(0);
   const numericTarget = parseInt(target.replace(/\D/g, ''), 10);
@@ -121,6 +135,27 @@ export default function Landing() {
               <p className="text-sm text-green-400/60">{desc}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Visual carousel below How it works */}
+      <section className="max-w-6xl mx-auto px-4 py-8">
+        <h3 className="text-2xl font-bold text-center text-white mb-2">Discover Our Impact</h3>
+        <p className="text-center text-green-400/60 mb-6">Real moments from the Foodlyx network — scrolling for visibility and engagement.</p>
+
+        <div className="carousel-container glass overflow-hidden border border-green-500/20 p-4">
+          <div className="carousel-track flex gap-4 py-2">
+            {[...carouselImages, ...carouselImages].map((src, idx) => (
+              <div key={`${src}-${idx}`} className="min-w-[360px] max-w-[380px] flex-shrink-0 rounded-xl overflow-hidden border border-green-500/20 bg-black/30">
+                <img
+                  src={src}
+                  alt={`Foodlyx photo ${idx + 1}`}
+                  className="w-full h-64 object-cover"
+                  loading="lazy"
+                />
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
