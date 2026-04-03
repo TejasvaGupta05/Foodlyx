@@ -1,13 +1,15 @@
 /**
  * Auto-classifies food based on shelf life.
- * > 6h  → edible       → NGOs / hospitals
- * 2-6h  → semi_edible  → animal shelters
- * ≤ 2h  → non_edible   → compost units
+ * > 8h  → fresh
+ * 4-8h  → semi_perishable
+ * 1-4h  → perishable
+ * ≤1h   → packaged
  */
 function classifyFood(shelfLifeHours) {
-  if (shelfLifeHours > 6) return 'edible';
-  if (shelfLifeHours > 2) return 'semi_edible';
-  return 'non_edible';
+  if (shelfLifeHours >= 8) return 'fresh';
+  if (shelfLifeHours >= 4) return 'semi_perishable';
+  if (shelfLifeHours > 1) return 'perishable';
+  return 'packaged';
 }
 
 module.exports = { classifyFood };

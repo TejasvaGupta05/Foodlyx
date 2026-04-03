@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
-import { Plus, Package, Clock, MapPin, Zap, TrendingUp, CheckCircle, AlertCircle } from 'lucide-react';
+import { Plus, Package, Clock, MapPin, Zap, TrendingUp, CheckCircle, AlertCircle, Upload, Image as ImageIcon } from 'lucide-react';
 import StatusBadge from '../components/StatusBadge';
 
 const urgencyOpts = ['low', 'medium', 'high'];
@@ -15,10 +15,31 @@ export default function DonorDashboard() {
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
   const [form, setForm] = useState({
-    foodType: '', quantity: '', shelfLifeHours: '', urgency: 'medium',
-    lat: user?.location?.lat || '', lng: user?.location?.lng || '',
-    address: '', notes: '',
+    donorCategory: 'mess',
+    donorBusinessName: user?.name || '',
+    donorContactPhone: '',
+    pickupAddress: '',
+
+    foodType: 'dal_roti',
+    foodName: '',
+    quantity: '',
+    quantityUnit: 'kg',
+    foodCategory: 'fresh_food',
+    preparationDate: '',
+    preparationTime: '',
+    storageCondition: 'room_temperature',
+    foodUsabilityCategory: 'human_edible',
+    foodImage: '',
+    foodImagePreview: '',
+    safeConsumptionUntil: '',
+
+    lat: user?.location?.lat || '',
+    lng: user?.location?.lng || '',
+    notes: '',
   });
+  const [qualityResult, setQualityResult] = useState({ status: '', recommendation: '' });
+  const [isDragOver, setIsDragOver] = useState(false);
+  const fileInputRef = useRef(null);
 
   const fetchRequests = async () => {
     try {
@@ -29,21 +50,129 @@ export default function DonorDashboard() {
 
   useEffect(() => { fetchRequests(); }, []);
 
+  useEffect(() => {
+    if (!form.preparationDate || !form.preparationTime || !form.foodUsabilityCategory) {
+      setQualityResult({ status: '', recommendation: '' });
+      return;
+    }
+
+    const prepared = new Date(`${form.preparationDate}T${form.preparationTime}`);
+    const elapsedHours = (Date.now() - prepared.getTime()) / 3600000;
+
+    let status = 'Risky / not recommended';
+    let recommendation = 'Compost / fertilizer';
+
+    if (form.foodUsabilityCategory === 'fertilizer_compost') {
+      status = 'Risky / not recommended';
+      recommendation = 'Compost / fertilizer';
+    } else if (form.foodUsabilityCategory === 'animal_edible') {
+      if (elapsedHours <= 8) {
+        status = 'Safe but urgent';
+        recommendation = 'Animal feeding';
+      } else {
+        status = 'Risky / not recommended';
+        recommendation = 'Compost / fertilizer';
+      }
+    } else if (form.foodUsabilityCategory === 'human_edible') {
+      if (elapsedHours <= 4 && form.foodCategory === 'fresh_food') {
+        status = 'Fresh';
+        recommendation = 'Human donation';
+      } else if (elapsedHours <= 8) {
+        status = 'Safe but urgent';
+        recommendation = 'Human donation';
+      } else {
+        status = 'Risky / not recommended';
+        recommendation = 'Animal feeding';
+      }
+    }
+
+    setQualityResult({ status, recommendation });
+  }, [form.preparationDate, form.preparationTime, form.storageCondition, form.foodUsabilityCategory, form.foodCategory]);
+
+  const handleImageChange = (e) => {
+    const file = e.target.files?.[0] || e.dataTransfer?.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setForm((prev) => ({ ...prev, foodImage: reader.result, foodImagePreview: URL.createObjectURL(file) }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    handleImageChange({ dataTransfer: e.dataTransfer });
+  };
+
+  const handleClickUpload = () => {
+    fileInputRef.current?.click();
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true); setError(''); setSuccess('');
     try {
       await api.post('/requests', {
+        donorBusinessName: form.donorBusinessName,
+        donorBusinessType: form.donorCategory,
+        donorContactPhone: form.donorContactPhone,
+        pickupAddress: form.pickupAddress,
+
         foodType: form.foodType,
+        foodName: form.foodName,
         quantity: parseFloat(form.quantity),
+        quantityUnit: form.quantityUnit,
+        foodCategory: form.foodCategory,
+        preparationDate: form.preparationDate,
+        preparationTime: form.preparationTime,
+        storageCondition: form.storageCondition,
+        foodUsabilityCategory: form.foodUsabilityCategory,
+        foodImage: form.foodImage,
+
         shelfLifeHours: parseFloat(form.shelfLifeHours),
         urgency: form.urgency,
-        location: { lat: parseFloat(form.lat) || 0, lng: parseFloat(form.lng) || 0, address: form.address },
+        safeConsumptionUntil: form.safeConsumptionUntil || null,
+
+        location: { lat: parseFloat(form.lat) || 0, lng: parseFloat(form.lng) || 0, address: form.pickupAddress },
         notes: form.notes,
       });
       setSuccess('Food request posted successfully!');
       setShowForm(false);
-      setForm({ foodType: '', quantity: '', shelfLifeHours: '', urgency: 'medium', lat: user?.location?.lat || '', lng: user?.location?.lng || '', address: '', notes: '' });
+      setForm({
+        donorCategory: 'mess',
+        donorBusinessName: user?.name || '',
+        donorContactPhone: '',
+        pickupAddress: '',
+
+        foodType: 'dal_roti',
+        foodName: '',
+        quantity: '',
+        quantityUnit: 'kg',
+        foodCategory: 'fresh_food',
+        preparationDate: '',
+        preparationTime: '',
+        storageCondition: 'room_temperature',
+        foodUsabilityCategory: 'human_edible',
+        foodImage: '',
+        foodImagePreview: '',
+        safeConsumptionUntil: '',
+
+        lat: user?.location?.lat || '',
+        lng: user?.location?.lng || '',
+        notes: '',
+      });
+      setQualityResult({ status: '', recommendation: '' });
       fetchRequests();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to post request');
@@ -96,59 +225,208 @@ export default function DonorDashboard() {
 
         {/* Post Form */}
         {showForm && (
-          <form onSubmit={handleSubmit} className="glass p-6 mb-8 fade-in">
+          <form onSubmit={handleSubmit} className="space-y-6 mb-8 fade-in">
             <h2 className="text-lg font-bold text-white mb-5">New Food Request</h2>
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs text-green-400/60 mb-1.5 block">Food Type</label>
-                <input value={form.foodType} onChange={e => setForm({...form, foodType: e.target.value})} required
-                  placeholder="e.g. Biryani, Bread..."
-                  className="w-full px-4 py-2.5 bg-green-900/10 border border-green-900/40 rounded-lg text-white placeholder:text-green-400/30 focus:outline-none focus:border-green-500/50 text-sm" />
-              </div>
-              <div>
-                <label className="text-xs text-green-400/60 mb-1.5 block">Quantity (kg/servings)</label>
-                <input type="number" min="1" value={form.quantity} onChange={e => setForm({...form, quantity: e.target.value})} required
-                  placeholder="e.g. 50"
-                  className="w-full px-4 py-2.5 bg-green-900/10 border border-green-900/40 rounded-lg text-white placeholder:text-green-400/30 focus:outline-none focus:border-green-500/50 text-sm" />
-              </div>
-              <div>
-                <label className="text-xs text-green-400/60 mb-1.5 block">Shelf Life (hours)</label>
-                <input type="number" min="0.5" step="0.5" value={form.shelfLifeHours} onChange={e => setForm({...form, shelfLifeHours: e.target.value})} required
-                  placeholder="e.g. 6"
-                  className="w-full px-4 py-2.5 bg-green-900/10 border border-green-900/40 rounded-lg text-white placeholder:text-green-400/30 focus:outline-none focus:border-green-500/50 text-sm" />
-              </div>
-              <div>
-                <label className="text-xs text-green-400/60 mb-1.5 block">Urgency</label>
-                <select value={form.urgency} onChange={e => setForm({...form, urgency: e.target.value})}
-                  className="w-full px-4 py-2.5 bg-green-900/10 border border-green-900/40 rounded-lg text-white focus:outline-none focus:border-green-500/50 text-sm">
-                  {urgencyOpts.map(o => <option key={o} value={o} className="bg-[#0a0f0d]">{o}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs text-green-400/60 mb-1.5 block">Latitude</label>
-                <input value={form.lat} onChange={e => setForm({...form, lat: e.target.value})}
-                  placeholder="28.6139"
-                  className="w-full px-4 py-2.5 bg-green-900/10 border border-green-900/40 rounded-lg text-white placeholder:text-green-400/30 focus:outline-none focus:border-green-500/50 text-sm" />
-              </div>
-              <div>
-                <label className="text-xs text-green-400/60 mb-1.5 block">Longitude</label>
-                <input value={form.lng} onChange={e => setForm({...form, lng: e.target.value})}
-                  placeholder="77.2090"
-                  className="w-full px-4 py-2.5 bg-green-900/10 border border-green-900/40 rounded-lg text-white placeholder:text-green-400/30 focus:outline-none focus:border-green-500/50 text-sm" />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="text-xs text-green-400/60 mb-1.5 block">Address (optional)</label>
-                <input value={form.address} onChange={e => setForm({...form, address: e.target.value})}
-                  placeholder="e.g. Connaught Place, Delhi"
-                  className="w-full px-4 py-2.5 bg-green-900/10 border border-green-900/40 rounded-lg text-white placeholder:text-green-400/30 focus:outline-none focus:border-green-500/50 text-sm" />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="text-xs text-green-400/60 mb-1.5 block">Notes (optional)</label>
-                <textarea value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} rows={2}
-                  placeholder="Any additional info..."
-                  className="w-full px-4 py-2.5 bg-green-900/10 border border-green-900/40 rounded-lg text-white placeholder:text-green-400/30 focus:outline-none focus:border-green-500/50 text-sm resize-none" />
+
+            {/* 1. Donor Details Section */}
+            <div className="glass p-4">
+              <h3 className="text-sm font-semibold text-green-400 mb-3">Donor Details</h3>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-green-400/60 mb-1.5 block">Donor Category</label>
+                  <select value={form.donorCategory} onChange={e => setForm({...form, donorCategory: e.target.value})} required
+                    className="w-full px-4 py-2.5 bg-green-900/10 border border-green-900/40 rounded-lg text-white focus:outline-none focus:border-green-500/50 text-sm">
+                    <option value="mess" className="bg-[#0a0f0d]">Mess</option>
+                    <option value="hotels_restaurants" className="bg-[#0a0f0d]">Hotels/Restaurants</option>
+                    <option value="party_gathering" className="bg-[#0a0f0d]">Party/Gathering</option>
+                    <option value="other" className="bg-[#0a0f0d]">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-green-400/60 mb-1.5 block">Donor / Business Name</label>
+                  <input value={form.donorBusinessName} onChange={e => setForm({...form, donorBusinessName: e.target.value})} required
+                    placeholder="Business name"
+                    className="w-full px-4 py-2.5 bg-green-900/10 border border-green-900/40 rounded-lg text-white placeholder:text-green-400/30 focus:outline-none focus:border-green-500/50 text-sm" />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="text-xs text-green-400/60 mb-1.5 block">Contact Details</label>
+                  <input value={form.donorContactPhone} onChange={e => setForm({...form, donorContactPhone: e.target.value})} required
+                    placeholder="Phone number"
+                    className="w-full px-4 py-2.5 bg-green-900/10 border border-green-900/40 rounded-lg text-white placeholder:text-green-400/30 focus:outline-none focus:border-green-500/50 text-sm" />
+                </div>
               </div>
             </div>
+
+            {/* 2. Image Upload Section */}
+            <div className="glass p-4">
+              <h3 className="text-sm font-semibold text-green-400 mb-3">Image Upload</h3>
+              <div>
+                <label className="text-xs text-green-400/60 mb-1.5 block">Food Image Upload</label>
+                <div
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  onClick={handleClickUpload}
+                  className={`relative border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all ${
+                    isDragOver
+                      ? 'border-green-500 bg-green-900/20'
+                      : 'border-green-900/40 bg-green-900/10 hover:border-green-500/50'
+                  }`}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="hidden"
+                    required
+                  />
+                  {form.foodImagePreview ? (
+                    <div className="flex flex-col items-center">
+                      <img src={form.foodImagePreview} alt="Preview" className="h-32 w-32 object-cover rounded-lg mb-4" />
+                      <p className="text-sm text-green-400">Image uploaded successfully</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center">
+                      <Upload className="w-12 h-12 text-green-400 mb-4" />
+                      <p className="text-lg font-medium text-white mb-2">Upload Image</p>
+                      <p className="text-sm text-green-400/60">Drag and drop or click to select</p>
+                    </div>
+                  )}
+                </div>
+                <p className="text-[11px] text-green-400 mt-2">Please upload a clear image so receivers can verify food condition and usability.</p>
+              </div>
+            </div>
+
+            {/* 3. Food Details Section */}
+            <div className="glass p-4">
+              <h3 className="text-sm font-semibold text-green-400 mb-3">Food Details</h3>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-green-400/60 mb-1.5 block">Food Type</label>
+                  <select value={form.foodType} onChange={e => setForm({...form, foodType: e.target.value})} required
+                    className="w-full px-4 py-2.5 bg-green-900/10 border border-green-900/40 rounded-lg text-white focus:outline-none focus:border-green-500/50 text-sm">
+                    <option value="dal_roti" className="bg-[#0a0f0d]">Dal/Roti</option>
+                    <option value="cooked_meals" className="bg-[#0a0f0d]">Cooked Meals</option>
+                    <option value="rice_items" className="bg-[#0a0f0d]">Rice Items</option>
+                    <option value="bread_bakery" className="bg-[#0a0f0d]">Bread / Bakery</option>
+                    <option value="fruits_vegetables" className="bg-[#0a0f0d]">Fruits / Vegetables</option>
+                    <option value="snacks" className="bg-[#0a0f0d]">Snacks</option>
+                    <option value="sweets_desserts" className="bg-[#0a0f0d]">Sweets / Desserts</option>
+                    <option value="beverages" className="bg-[#0a0f0d]">Beverages</option>
+                    <option value="packaged_food" className="bg-[#0a0f0d]">Packaged Food</option>
+                    <option value="other" className="bg-[#0a0f0d]">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-green-400/60 mb-1.5 block">Food Name</label>
+                  <input value={form.foodName} onChange={e => setForm({...form, foodName: e.target.value})} required
+                    placeholder="e.g. Veg Biryani"
+                    className="w-full px-4 py-2.5 bg-green-900/10 border border-green-900/40 rounded-lg text-white placeholder:text-green-400/30 focus:outline-none focus:border-green-500/50 text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs text-green-400/60 mb-1.5 block">Food Quantity</label>
+                  <input type="number" min="1" value={form.quantity} onChange={e => setForm({...form, quantity: e.target.value})} required
+                    placeholder="e.g. 5"
+                    className="w-full px-4 py-2.5 bg-green-900/10 border border-green-900/40 rounded-lg text-white placeholder:text-green-400/30 focus:outline-none focus:border-green-500/50 text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs text-green-400/60 mb-1.5 block">Quantity Unit</label>
+                  <select value={form.quantityUnit} onChange={e => setForm({...form, quantityUnit: e.target.value})} required
+                    className="w-full px-4 py-2.5 bg-green-900/10 border border-green-900/40 rounded-lg text-white focus:outline-none focus:border-green-500/50 text-sm">
+                    <option value="plates" className="bg-[#0a0f0d]">Plates</option>
+                    <option value="kg" className="bg-[#0a0f0d]">Kg</option>
+                    <option value="litres" className="bg-[#0a0f0d]">Litres</option>
+                    <option value="packets" className="bg-[#0a0f0d]">Packets</option>
+                    <option value="persons_served" className="bg-[#0a0f0d]">Persons Served</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-green-400/60 mb-1.5 block">Food Category</label>
+                  <select value={form.foodCategory} onChange={e => setForm({...form, foodCategory: e.target.value})} required
+                    className="w-full px-4 py-2.5 bg-green-900/10 border border-green-900/40 rounded-lg text-white focus:outline-none focus:border-green-500/50 text-sm">
+                    <option value="fresh_food" className="bg-[#0a0f0d]">Fresh food</option>
+                    <option value="packaged_food" className="bg-[#0a0f0d]">Packaged food</option>
+                    <option value="perishable_food" className="bg-[#0a0f0d]">Perishable food</option>
+                    <option value="dry_food" className="bg-[#0a0f0d]">Dry food</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-green-400/60 mb-1.5 block">Preparation Date</label>
+                  <input type="date" value={form.preparationDate} onChange={e => setForm({...form, preparationDate: e.target.value})} required
+                    className="w-full px-4 py-2.5 bg-green-900/10 border border-green-900/40 rounded-lg text-white focus:outline-none focus:border-green-500/50 text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs text-green-400/60 mb-1.5 block">Preparation Time</label>
+                  <input type="time" value={form.preparationTime} onChange={e => setForm({...form, preparationTime: e.target.value})} required
+                    className="w-full px-4 py-2.5 bg-green-900/10 border border-green-900/40 rounded-lg text-white focus:outline-none focus:border-green-500/50 text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs text-green-400/60 mb-1.5 block">Storage Condition</label>
+                  <select value={form.storageCondition} onChange={e => setForm({...form, storageCondition: e.target.value})} required
+                    className="w-full px-4 py-2.5 bg-green-900/10 border border-green-900/40 rounded-lg text-white focus:outline-none focus:border-green-500/50 text-sm">
+                    <option value="room_temperature" className="bg-[#0a0f0d]">Room temperature</option>
+                    <option value="refrigerated" className="bg-[#0a0f0d]">Refrigerated</option>
+                    <option value="packed" className="bg-[#0a0f0d]">Packed</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-green-400/60 mb-1.5 block">Food Usability Category</label>
+                  <select value={form.foodUsabilityCategory} onChange={e => setForm({...form, foodUsabilityCategory: e.target.value})} required
+                    className="w-full px-4 py-2.5 bg-green-900/10 border border-green-900/40 rounded-lg text-white focus:outline-none focus:border-green-500/50 text-sm">
+                    <option value="human_edible" className="bg-[#0a0f0d]">Human edible</option>
+                    <option value="animal_edible" className="bg-[#0a0f0d]">Animal edible</option>
+                    <option value="fertilizer_compost" className="bg-[#0a0f0d]">Suitable for fertilizer / compost</option>
+                  </select>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="text-xs text-green-400/60 mb-1.5 block">Expiry / Safe Consumption Time</label>
+                  <input type="datetime-local" value={form.safeConsumptionUntil} onChange={e => setForm({...form, safeConsumptionUntil: e.target.value})}
+                    className="w-full px-4 py-2.5 bg-green-900/10 border border-green-900/40 rounded-lg text-white focus:outline-none focus:border-green-500/50 text-sm" />
+                </div>
+              </div>
+              {qualityResult.status && (
+                <div className="mt-4 p-4 bg-green-900/20 border border-green-500/20 rounded-lg">
+                  <p className="text-sm text-white"><strong>Food Quality Status:</strong> {qualityResult.status}</p>
+                  <p className="text-sm text-green-300"><strong>Recommendation:</strong> {qualityResult.recommendation}</p>
+                </div>
+              )}
+            </div>
+
+            {/* 4. Address Section */}
+            <div className="glass p-4">
+              <h3 className="text-sm font-semibold text-green-400 mb-3">Address</h3>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2">
+                  <label className="text-xs text-green-400/60 mb-1.5 block">Pickup Address</label>
+                  <input value={form.pickupAddress} onChange={e => setForm({...form, pickupAddress: e.target.value})} required
+                    placeholder="Full pickup location"
+                    className="w-full px-4 py-2.5 bg-green-900/10 border border-green-900/40 rounded-lg text-white placeholder:text-green-400/30 focus:outline-none focus:border-green-500/50 text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs text-green-400/60 mb-1.5 block">Latitude</label>
+                  <input value={form.lat} onChange={e => setForm({...form, lat: e.target.value})} required
+                    placeholder="28.6139"
+                    className="w-full px-4 py-2.5 bg-green-900/10 border border-green-900/40 rounded-lg text-white placeholder:text-green-400/30 focus:outline-none focus:border-green-500/50 text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs text-green-400/60 mb-1.5 block">Longitude</label>
+                  <input value={form.lng} onChange={e => setForm({...form, lng: e.target.value})} required
+                    placeholder="77.2090"
+                    className="w-full px-4 py-2.5 bg-green-900/10 border border-green-900/40 rounded-lg text-white placeholder:text-green-400/30 focus:outline-none focus:border-green-500/50 text-sm" />
+                </div>
+                <div className="sm:col-span-2">
+                  <p className="text-xs text-green-400/60">Maps API location selection can be integrated here for automatic lat/lng.</p>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="text-xs text-green-400/60 mb-1.5 block">Notes (optional)</label>
+                  <textarea value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} rows={2}
+                    placeholder="Any additional info..."
+                    className="w-full px-4 py-2.5 bg-green-900/10 border border-green-900/40 rounded-lg text-white placeholder:text-green-400/30 focus:outline-none focus:border-green-500/50 text-sm resize-none" />
+                </div>
+              </div>
+            </div>
+
             <div className="flex gap-3 mt-5">
               <button type="submit" disabled={submitting}
                 className="px-6 py-2.5 bg-green-600 hover:bg-green-500 disabled:opacity-60 text-white rounded-lg font-medium transition-all text-sm">
@@ -176,10 +454,12 @@ export default function DonorDashboard() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-green-900/20 text-green-400/50 text-xs">
+                    <th className="px-4 py-3 text-left font-medium">Business</th>
                     <th className="px-4 py-3 text-left font-medium">Food Type</th>
                     <th className="px-4 py-3 text-left font-medium">Qty</th>
                     <th className="px-4 py-3 text-left font-medium">Shelf Life</th>
                     <th className="px-4 py-3 text-left font-medium">Category</th>
+                    <th className="px-4 py-3 text-left font-medium">Quality</th>
                     <th className="px-4 py-3 text-left font-medium">Status</th>
                     <th className="px-4 py-3 text-left font-medium">Urgency</th>
                     <th className="px-4 py-3 text-left font-medium">Date</th>
@@ -188,10 +468,12 @@ export default function DonorDashboard() {
                 <tbody>
                   {requests.map((r) => (
                     <tr key={r._id} className="border-b border-green-900/10 hover:bg-green-900/10 transition-colors">
+                      <td className="px-4 py-3 text-white font-medium">{r.donorDetails?.businessName || (r.donorId?.name || 'Self')}</td>
                       <td className="px-4 py-3 text-white font-medium">{r.foodType}</td>
                       <td className="px-4 py-3 text-green-400/70">{r.quantity}</td>
                       <td className="px-4 py-3 text-green-400/70">{r.shelfLifeHours}h</td>
                       <td className="px-4 py-3"><StatusBadge type="category" value={r.category} /></td>
+                      <td className="px-4 py-3 text-green-400/70">{r.foodQualityStatus || 'unknown'}</td>
                       <td className="px-4 py-3"><StatusBadge type="status" value={r.status} /></td>
                       <td className="px-4 py-3 capitalize text-green-400/60">{r.urgency}</td>
                       <td className="px-4 py-3 text-green-400/40">{new Date(r.createdAt).toLocaleDateString()}</td>

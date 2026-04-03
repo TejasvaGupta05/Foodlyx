@@ -21,18 +21,101 @@ function haversine(lat1, lng1, lat2, lng2) {
 // POST /api/requests — create food request (donor only)
 router.post('/', protect, async (req, res) => {
   try {
-    const { foodType, quantity, shelfLifeHours, urgency, location, notes } = req.body;
-    const category = classifyFood(shelfLifeHours);
+    const {
+      donorBusinessName,
+      donorBusinessType,
+      donorContactPhone,
+      pickupAddress,
+      foodType,
+      foodName,
+      quantity,
+      quantityUnit,
+      category: foodCategory,
+      shelfLifeHours,
+      urgency,
+      preparationDate,
+      preparationTime,
+      storageCondition,
+      foodUsabilityCategory,
+      foodImage,
+      safeConsumptionUntil,
+      location,
+      notes,
+    } = req.body;
+
+    // Required validation
+    if (!donorBusinessName || !donorContactPhone || !pickupAddress || !location?.lat || !location?.lng) {
+      return res.status(400).json({ message: 'Please provide donor details, pickup address and exact location' });
+    }
+    if (!foodType || !foodName || !quantity || !quantityUnit || !foodCategory || !preparationDate || !preparationTime || !storageCondition || !foodUsabilityCategory) {
+      return res.status(400).json({ message: 'Please provide complete food details and quality assessment' });
+    }
+
+    const foodCategoryValue = foodCategory;
+    const safeUntilDate = safeConsumptionUntil
+      ? new Date(safeConsumptionUntil)
+      : new Date(Date.now() + (shelfLifeHours || 0) * 3600000);
+
+    const prepDateTime = new Date(`${preparationDate}T${preparationTime}`);
+    const elapsedMs = Date.now() - prepDateTime.getTime();
+    const elapsedHours = elapsedMs / 3600000;
+
+    let computedQuality = 'safe_but_urgent';
+    let recommendation = 'human_donation';
+
+    if (foodUsabilityCategory === 'fertilizer_compost') {
+      computedQuality = 'risky_not_recommended';
+      recommendation = 'compost_fertilizer';
+    } else if (foodUsabilityCategory === 'animal_edible') {
+      if (elapsedHours < 8) {
+        computedQuality = 'safe_but_urgent';
+        recommendation = 'animal_feeding';
+      } else {
+        computedQuality = 'risky_not_recommended';
+        recommendation = 'compost_fertilizer';
+      }
+    } else {
+      if (elapsedHours <= 4 && foodCategoryValue === 'fresh_food') {
+        computedQuality = 'fresh';
+        recommendation = 'human_donation';
+      } else if (elapsedHours <= 8) {
+        computedQuality = 'safe_but_urgent';
+        recommendation = 'human_donation';
+      } else {
+        computedQuality = 'risky_not_recommended';
+        recommendation = 'animal_feeding';
+      }
+    }
+
     const request = await FoodRequest.create({
       donorId: req.user._id,
+      donorDetails: {
+        businessName: donorBusinessName,
+        businessType: donorBusinessType || 'other',
+        contactPhone: donorContactPhone,
+        contactEmail: req.user.email || '',
+        pickupAddress,
+      },
       foodType,
+      foodName,
       quantity,
+      quantityUnit,
+      foodCategory: foodCategoryValue,
       shelfLifeHours,
       urgency: urgency || 'medium',
+      preparationDate: new Date(preparationDate),
+      preparationTime,
+      storageCondition,
+      foodUsabilityCategory,
+      foodImage: foodImage || '',
+      category: foodCategoryValue,
+      foodQualityStatus: computedQuality,
+      qualityRecommendation: recommendation,
+      safeConsumptionUntil: safeUntilDate,
       location,
-      category,
       notes,
     });
+
     // Emit socket event
     req.app.get('io').emit('new_request', request);
 
