@@ -1,6 +1,11 @@
 import { Link } from 'react-router-dom';
 import { Leaf, ArrowRight, Utensils, Heart, BarChart3, Radio, Shield, Zap } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import plate1 from '../assets/graphics/Food_Plate_Graphic.png';
+import plate2 from '../assets/graphics/Food_Plate_Graphic2.png';
+import plate3 from '../assets/graphics/Food_Plate_Graphic3.png';
+import plate4 from '../assets/graphics/Food_Plate_Graphic4.png';
+import plate5 from '../assets/graphics/Food_Plate_Graphic5.png';
 
 const stats = [
   { label: 'Meals Saved', value: '48,200+', icon: Utensils },
@@ -73,33 +78,60 @@ function Counter({ target }) {
 
 export default function Landing() {
   return (
-    <div className="hero-bg min-h-screen pt-24 pb-16">
+    <div className="hero-bg min-h-screen pt-20 pb-16">
       {/* Hero */}
-      <section className="max-w-5xl mx-auto px-4 text-center py-20">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass border border-green-500/20 text-green-400 text-xs font-medium mb-8">
-          <Radio className="w-3 h-3 animate-pulse" /> Live food redistribution network
+      <section className="max-w-7xl mx-auto px-4 pt-10 pb-20 flex flex-col md:flex-row items-center justify-between gap-12">
+        {/* Left Content */}
+        <div className="w-full md:w-[55%] text-left">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass border border-green-500/20 text-green-400 text-s font-medium mb-8">
+            <Radio className="w-5 h-5 animate-pulse" /> Live food redistribution network
+          </div>
+          <h1 className="text-5xl sm:text-7xl lg:text-6xl font-black leading-tight mb-6">
+            <span className="gradient-text">Zero Waste,</span>
+            <br />
+            <span className="text-white">Maximum Impact</span>
+          </h1>
+          <p className="text-lg text-green-300/60 max-w-xl mb-10 leading-relaxed">
+            FOODLYX connects food donors with NGOs, animal shelters, and compost units — using smart AI classification to route every meal to where it matters most.
+          </p>
+          <div className="flex flex-col sm:flex-row items-start gap-4">
+            <Link
+              to="/signup"
+              className="group flex items-center justify-center gap-2 px-8 py-3.5 bg-green-600 hover:bg-green-500 text-white rounded-xl font-semibold transition-all glow pulse-green w-full sm:w-auto"
+            >
+              Start Donating <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </Link>
+            <Link
+              to="/feed"
+              className="flex items-center justify-center gap-2 px-8 py-3.5 glass hover:border-green-500/40 text-green-300 rounded-xl font-medium transition-all w-full sm:w-auto"
+            >
+              <Radio className="w-4 h-4" /> Live Feed
+            </Link>
+          </div>
         </div>
-        <h1 className="text-5xl sm:text-7xl font-black leading-tight mb-6">
-          <span className="gradient-text">Zero Waste,</span>
-          <br />
-          <span className="text-white">Maximum Impact</span>
-        </h1>
-        <p className="text-lg text-green-300/60 max-w-2xl mx-auto mb-10 leading-relaxed">
-          FOODLYX connects food donors with NGOs, animal shelters, and compost units — using smart AI classification to route every meal to where it matters most.
-        </p>
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Link
-            to="/signup"
-            className="group flex items-center gap-2 px-8 py-3.5 bg-green-600 hover:bg-green-500 text-white rounded-xl font-semibold transition-all glow pulse-green"
-          >
-            Start Donating <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-          </Link>
-          <Link
-            to="/feed"
-            className="flex items-center gap-2 px-8 py-3.5 glass hover:border-green-500/40 text-green-300 rounded-xl font-medium transition-all"
-          >
-            <Radio className="w-4 h-4" /> Live Feed
-          </Link>
+
+        {/* Right Graphics (Pentagon Layout) */}
+        <div className="w-full md:w-[45%] relative h-[450px] md:h-[600px] flex items-center justify-center">
+          {/* Top Peak */}
+          <div className="absolute top-[5%] md:top-[10%] left-[35%] md:left-[40%] w-20 h-20 md:w-28 md:h-28 animate-float-1 z-10">
+            <img src={plate1} alt="Food Plate" className="w-full h-full object-contain filter drop-shadow-[0_15px_15px_rgba(22,163,74,0.2)]" />
+          </div>
+          {/* Top Right */}
+          <div className="absolute top-[29%] right-[10%] md:right-[20%] w-28 h-28 md:w-36 md:h-36 animate-float-3 z-10">
+            <img src={plate4} alt="Food Plate" className="w-full h-full object-contain filter drop-shadow-[0_20px_20px_rgba(22,163,74,0.3)]" />
+          </div>
+          {/* Bottom Right */}
+          <div className="absolute bottom-[20%] right-[10%] md:right-[15%] w-28 h-28 md:w-36 md:h-36 animate-float-2 z-10">
+            <img src={plate3} alt="Food Plate" className="w-full h-full object-contain filter drop-shadow-[0_15px_15px_rgba(22,163,74,0.2)]" />
+          </div>
+          {/* Bottom Left (Big) */}
+          <div className="absolute bottom-[10%] left-[5%] md:left-[10%] w-44 h-44 md:w-64 md:h-64 animate-float-1 z-20">
+            <img src={plate2} alt="Food Plate" className="w-full h-full object-contain filter drop-shadow-[0_25px_30px_rgba(22,163,74,0.4)]" />
+          </div>
+          {/* Top Left */}
+          <div className="absolute top-[20%] left-[5%] md:left-[10%] w-24 h-24 md:w-32 md:h-32 animate-float-3 z-10">
+            <img src={plate5} alt="Food Plate" className="w-full h-full object-contain filter drop-shadow-[0_15px_15px_rgba(22,163,74,0.3)]" />
+          </div>
         </div>
       </section>
 
