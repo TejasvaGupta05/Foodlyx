@@ -4,6 +4,9 @@ import Navbar from './components/Navbar';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import DonorDashboard from './pages/DonorDashboard';
+import NGODashboard from './pages/NGODashboard';
+import AdminDashboard from './pages/AdminDashboard';
 import LiveFeed from './pages/LiveFeed';
 
 function ProtectedRoute({ children, allowedRoles }) {
