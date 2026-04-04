@@ -9,6 +9,8 @@ import DonorDashboard from './pages/DonorDashboard';
 import NGODashboard from './pages/NGODashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import LiveFeed from './pages/LiveFeed';
+import AnimalShelterDashboard from './pages/AnimalShelterDashboard';
+import CompostUnitDashboard from './pages/CompostUnitDashboard';
 
 function ProtectedRoute({ children, allowedRoles }) {
   const { user } = useAuth();
@@ -51,8 +53,18 @@ export default function App() {
           </ProtectedRoute>
         } />
         <Route path="/ngo" element={
-          <ProtectedRoute allowedRoles={['ngo', 'animal_shelter', 'compost_unit']}>
+          <ProtectedRoute allowedRoles={['ngo']}>
             <NGODashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/shelter" element={
+          <ProtectedRoute allowedRoles={['animal_shelter']}>
+            <AnimalShelterDashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/compost" element={
+          <ProtectedRoute allowedRoles={['compost_unit']}>
+            <CompostUnitDashboard />
           </ProtectedRoute>
         } />
         <Route path="/admin" element={
