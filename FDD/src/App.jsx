@@ -13,6 +13,7 @@ import Charity from './pages/Charity';
 import Community from './pages/Community';
 import AnimalShelterDashboard from './pages/AnimalShelterDashboard';
 import CompostUnitDashboard from './pages/CompostUnitDashboard';
+import SeedDemoAccounts from './pages/SeedDemoAccounts';
 
 function ProtectedRoute({ children, allowedRoles }) {
   const { user } = useAuth();
@@ -56,6 +57,7 @@ export default function App() {
         <Route path="/community" element={<Community />} />
         <Route path="/feed" element={<LiveFeed />} />
         <Route path="/charity" element={<Charity />} />
+        <Route path="/seed-demo" element={<SeedDemoAccounts />} />
         <Route path="/donor" element={
           <ProtectedRoute allowedRoles={['donor']}>
             <DonorDashboard />

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { auth, db } from '../firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
@@ -6,39 +6,42 @@ import { doc, getDoc } from 'firebase/firestore';
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  // Start with null — children render immediately, no loading gate
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Track if login() was called manually so we don't let onAuthStateChanged overwrite it
+  const manualLoginRef = useRef(false);
 
   useEffect(() => {
-    console.log('AuthProvider: Setting up auth listener');
+    // CRITICAL: Empty dependency array [] — this must ONLY run once.
+    // If you add 'user' here, the listener re-fires on every login() call
+    // and immediately sets user=null for demo/offline sessions.
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      console.log('AuthProvider: onAuthStateChanged fired, firebaseUser:', firebaseUser?.uid);
       if (firebaseUser) {
-        // Check if we already have user data from manual login() call (signup flow)
-        // This prevents race conditions where Firestore fetch might fail temporarily
-        if (user && user.uid === firebaseUser.uid) {
-          // User data already set by login() call, don't overwrite
+        // If a manual login() was called recently (e.g. after signup or demo login),
+        // skip the Firestore fetch to avoid a race condition that overwrites the correct user.
+        if (manualLoginRef.current) {
+          manualLoginRef.current = false;
           setLoading(false);
           return;
         }
-        
+
         try {
           const docSnap = await getDoc(doc(db, 'users', firebaseUser.uid));
           if (docSnap.exists()) {
-            // Full profile from Firestore — has correct name, role, etc.
             setUser({ uid: firebaseUser.uid, email: firebaseUser.email, ...docSnap.data() });
           } else {
-            // No Firestore doc yet (new user) — minimum viable user
             setUser({ uid: firebaseUser.uid, email: firebaseUser.email, role: 'donor' });
           }
         } catch (err) {
           console.warn('Could not fetch Firestore profile:', err.message);
-          // Can't reach Firestore — use minimal auth data
-          setUser({ uid: firebaseUser.uid, email: firebaseUser.email, role: 'donor' });
+          setUser(prev => prev ?? { uid: firebaseUser.uid, email: firebaseUser.email, role: 'donor' });
         }
       } else {
-        setUser(null);
+        // Only clear user if it wasn't a manual (demo) login
+        if (!manualLoginRef.current) {
+          setUser(null);
+        }
+        manualLoginRef.current = false;
       }
       setLoading(false);
     }, (error) => {
@@ -48,31 +51,30 @@ export function AuthProvider({ children }) {
     });
 
     return () => unsubscribe();
-  }, [user]); // Add user as dependency to check for manual login
+  }, []); // ← Empty array: register listener exactly once, for the app's lifetime
 
   const login = (userData) => {
-    console.log('AuthProvider: login() called with:', userData);
+    // Mark that we're doing a manual login so onAuthStateChanged doesn't interfere
+    manualLoginRef.current = true;
     setUser(userData);
+    setLoading(false);
   };
 
   const logout = async () => {
-    console.log('AuthProvider: logout() called');
+    manualLoginRef.current = false;
     try {
       await signOut(auth);
       setUser(null);
     } catch (err) {
-      console.error('AuthProvider: Logout error:', err);
+      console.error('Logout error:', err);
     }
   };
 
-  console.log('AuthProvider: Current user state:', user, 'loading:', loading);
-
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
 export const useAuth = () => useContext(AuthContext);
-
