@@ -26,14 +26,18 @@ export default function AnimalShelterDashboard() {
     try {
       const params = new URLSearchParams();
       if (filters.category !== 'all') params.set('category', filters.category);
-      if (filters.urgency) params.set('urgency', filters.urgency);
       
       const { data } = await api.get(`/requests?${params}`);
       
-      // Client-side filtering logic to showcase food that is potentially dangerous for humans but fine for animals/compost
+      // Client-side filtering for urgency
       let filtered = data;
+      if (filters.urgency) {
+        filtered = filtered.filter(req => req.urgency === filters.urgency);
+      }
+      
+      // Client-side filtering logic to showcase food that is potentially dangerous for humans but fine for animals/compost
       if(filters.category === 'semi_edible') {
-         filtered = data.filter(d => ['dry_food', 'perishable_food'].includes(d.category));
+         filtered = filtered.filter(d => ['dry_food', 'perishable_food'].includes(d.category));
       }
       setRequests(filtered);
 
@@ -44,7 +48,7 @@ export default function AnimalShelterDashboard() {
 
   const fetchFeedbacks = async () => {
     try {
-      const { data } = await api.get(`/feedback/receiver/${user?._id}`);
+      const { data } = await api.get(`/feedback/receiver/${user?.uid}`);
       setFeedbacks(data);
     } catch (error) {
       console.error('Failed to fetch feedbacks:', error);

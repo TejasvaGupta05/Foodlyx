@@ -26,12 +26,16 @@ export default function CompostUnitDashboard() {
     try {
       const params = new URLSearchParams();
       if (filters.category !== 'all') params.set('category', filters.category);
-      if (filters.urgency) params.set('urgency', filters.urgency);
       
       const { data } = await api.get(`/requests?${params}`);
       
-      // Client-side filtering logic to showcase food that is 100% perished or waste
+      // Client-side filtering for urgency
       let filtered = data;
+      if (filters.urgency) {
+        filtered = filtered.filter(req => req.urgency === filters.urgency);
+      }
+      
+      // Client-side filtering logic to showcase food that is 100% perished or waste
       if(filters.category === 'non_edible') {
          filtered = data.filter(d => ['perishable_food', 'dry_food'].includes(d.category));
       }
@@ -44,7 +48,7 @@ export default function CompostUnitDashboard() {
 
   const fetchFeedbacks = async () => {
     try {
-      const { data } = await api.get(`/feedback/receiver/${user?._id}`);
+      const { data } = await api.get(`/feedback/receiver/${user?.uid}`);
       setFeedbacks(data);
     } catch (error) {
       console.error('Failed to fetch feedbacks:', error);

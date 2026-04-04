@@ -40,8 +40,11 @@ export default function Signup() {
     setError('');
     setLoading(true);
     try {
+      console.log('Starting signup process...');
+      
       // 1. Create user in Firebase Auth
       const { user: firebaseUser } = await createUserWithEmailAndPassword(auth, form.email, form.password);
+      console.log('Firebase Auth user created:', firebaseUser.uid);
 
       // 2. Prepare user profile document
       const userData = {
@@ -53,22 +56,33 @@ export default function Signup() {
         impactScore: 0,
         createdAt: new Date().toISOString()
       };
+      console.log('User data to save:', userData);
 
       // 3. Save profile to Firestore — MUST await so data is available on next login
       await setDoc(doc(db, 'users', firebaseUser.uid), userData);
+      console.log('Firestore document saved successfully');
 
       // 4. Update context immediately so redirection works right away
-      login({ uid: firebaseUser.uid, ...userData });
+      const fullUserData = { uid: firebaseUser.uid, ...userData };
+      login(fullUserData);
+      console.log('Context updated with user data:', fullUserData);
 
-      // 5. Navigate based on role
-      if (form.role === 'donor') navigate('/donor');
-      else if (form.role === 'admin') navigate('/admin');
-      else if (form.role === 'animal_shelter') navigate('/shelter');
-      else if (form.role === 'compost_unit') navigate('/compost');
-      else navigate('/ngo');
+      // 5. Small delay to ensure context is updated before navigation
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // 6. Navigate based on role
+      let redirectPath;
+      if (form.role === 'donor') redirectPath = '/donor';
+      else if (form.role === 'admin') redirectPath = '/admin';
+      else if (form.role === 'animal_shelter') redirectPath = '/shelter';
+      else if (form.role === 'compost_unit') redirectPath = '/compost';
+      else redirectPath = '/ngo';
+      
+      console.log('Navigating to:', redirectPath);
+      navigate(redirectPath);
 
     } catch (err) {
-      console.error(err);
+      console.error('Signup error:', err);
       const msg = err.code === 'auth/email-already-in-use'
         ? 'This email is already registered. Try logging in instead.'
         : err.code === 'auth/weak-password'

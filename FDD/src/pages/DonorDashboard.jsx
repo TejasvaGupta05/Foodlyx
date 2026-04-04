@@ -8,8 +8,9 @@ import FeedbackDisplay from '../components/FeedbackDisplay';
 const urgencyOpts = ['low', 'medium', 'high'];
 
 export default function DonorDashboard() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [requests, setRequests] = useState([]);
+  const [stats, setStats] = useState({ total: 0, delivered: 0, pending: 0, impact: 0 });
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -44,22 +45,59 @@ export default function DonorDashboard() {
   const fileInputRef = useRef(null);
 
   const fetchRequests = async () => {
+    if (!user?.uid) {
+      setLoading(false);
+      return;
+    }
+
     try {
       const { data } = await api.get('/requests/my');
       setRequests(data);
     } catch { } finally { setLoading(false); }
   };
 
-  const fetchFeedbacks = async () => {
+  const fetchStats = async () => {
     try {
-      const { data } = await api.get(`/feedback/donor/${user?._id}`);
+      const { data } = await api.get('/stats');
+      // Calculate donor-specific stats from the global stats
+      const userRequests = requests.filter(
+        (r) => r.donorId === user?.uid || r.donorId?.uid === user?.uid
+      );
+      const total = userRequests.length;
+      const delivered = userRequests.filter(r => r.status === 'delivered').length;
+      const pending = userRequests.filter(r => r.status === 'pending').length;
+      const impact = user?.impactScore || 0;
+      
+      setStats({ total, delivered, pending, impact });
+    } catch (error) {
+      console.error('Failed to fetch stats:', error);
+      // Set default stats if fetch fails
+      setStats({ total: 0, delivered: 0, pending: 0, impact: user?.impactScore || 0 });
+    }
+  };
+
+  const fetchFeedbacks = async () => {
+    if (!user?.uid) return;
+    try {
+      const { data } = await api.get(`/feedback/donor/${user.uid}`);
       setFeedbacks(data);
     } catch (error) {
       console.error('Failed to fetch feedbacks:', error);
     }
   };
 
-  useEffect(() => { fetchRequests(); fetchFeedbacks(); }, []);
+  useEffect(() => { 
+    if (user && !authLoading) {
+      fetchRequests(); 
+      fetchFeedbacks(); 
+    }
+  }, [user, authLoading]);
+
+  useEffect(() => {
+    if (user && requests.length >= 0) { // Run after requests are loaded
+      fetchStats();
+    }
+  }, [user, requests]);
 
   useEffect(() => {
     if (!form.preparationDate || !form.preparationTime || !form.foodUsabilityCategory) {

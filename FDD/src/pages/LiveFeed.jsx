@@ -15,9 +15,15 @@ export default function LiveFeed() {
     try {
       const params = new URLSearchParams({ status: 'pending' });
       if (filters.category) params.set('category', filters.category);
-      if (filters.urgency) params.set('urgency', filters.urgency);
       const { data } = await api.get(`/requests?${params}`);
-      setRequests(data);
+      
+      // Client-side filtering for urgency since it's not implemented in firebase-api
+      let filteredData = data;
+      if (filters.urgency) {
+        filteredData = data.filter(req => req.urgency === filters.urgency);
+      }
+      
+      setRequests(filteredData);
     } catch { } finally { setLoading(false); }
   };
 

@@ -10,13 +10,19 @@ import NGODashboard from './pages/NGODashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import LiveFeed from './pages/LiveFeed';
 import Charity from './pages/Charity';
+import Community from './pages/Community';
 import AnimalShelterDashboard from './pages/AnimalShelterDashboard';
 import CompostUnitDashboard from './pages/CompostUnitDashboard';
 
 function ProtectedRoute({ children, allowedRoles }) {
   const { user } = useAuth();
-  if (!user) return <Navigate to="/login" replace />;
+  
+  // If user is null, redirect to login
+  if (user === null) return <Navigate to="/login" replace />;
+  
+  // If user exists but role check fails, redirect to landing
   if (allowedRoles && !allowedRoles.includes(user.role)) return <Navigate to="/" replace />;
+  
   return children;
 }
 
@@ -47,6 +53,7 @@ export default function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/community" element={<Community />} />
         <Route path="/feed" element={<LiveFeed />} />
         <Route path="/charity" element={<Charity />} />
         <Route path="/donor" element={

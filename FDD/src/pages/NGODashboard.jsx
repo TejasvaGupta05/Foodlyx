@@ -26,18 +26,24 @@ export default function NGODashboard() {
     try {
       const params = new URLSearchParams();
       if (filters.category) params.set('category', filters.category);
-      if (filters.urgency) params.set('urgency', filters.urgency);
       const { data } = await api.get(`/requests?${params}`);
-      setRequests(data);
+      
+      // Client-side filtering for urgency
+      let filteredData = data;
+      if (filters.urgency) {
+        filteredData = data.filter(req => req.urgency === filters.urgency);
+      }
+      
+      setRequests(filteredData);
 
       const myData = await api.get('/requests/all');
-      setMyRequests(myData.data.filter(r => r.acceptedBy?._id === user?._id || r.acceptedBy === user?._id));
+      setMyRequests(myData.data.filter(r => r.acceptedBy?.uid === user?.uid || r.acceptedBy === user?.uid));
     } catch { } finally { setLoading(false); }
   };
 
   const fetchFeedbacks = async () => {
     try {
-      const { data } = await api.get(`/feedback/receiver/${user?._id}`);
+      const { data } = await api.get(`/feedback/receiver/${user?.uid}`);
       setFeedbacks(data);
     } catch (error) {
       console.error('Failed to fetch feedbacks:', error);
