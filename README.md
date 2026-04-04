@@ -1,12 +1,11 @@
 # Foodlyx
-[![Ask DeepWiki](https://devin.ai/assets/askdeepwiki.png)](https://deepwiki.com/TejasvaGupta05/Foodlyx.git)
 
 Foodlyx is a full-stack web application designed to bridge the gap between food donors and organizations in need. It provides a real-time platform for restaurants, event organizers, and individuals to donate surplus food, which is then intelligently routed to NGOs, animal shelters, or compost units based on an AI-powered classification system.
 
 ## ✨ Key Features
 
 *   **Role-Based Dashboards**: Tailored dashboards for Donors, NGOs, Animal Shelters, Compost Units, and Administrators, each with specific functionalities.
-*   **AI-Powered Food Classification**: An intelligent system assesses food quality based on its preparation time and category to recommend the most suitable recipient (human, animal, or compost).
+*   **Food Classification**: An intelligent system assesses food quality based on its preparation time and category to recommend the most suitable recipient (human, animal, or compost).
 *   **Real-Time Food Feed**: A live, auto-updating feed displays all available food donations, allowing organizations to accept requests instantly.
 *   **Interactive Community Hub**: A social space for users to share success stories, post updates, and engage with others in the network. Features a like system and an impact-based leaderboard.
 *   **Comprehensive Admin Panel**: Administrators have access to platform-wide analytics, user management capabilities (including verification), and a complete history of all donation requests.
