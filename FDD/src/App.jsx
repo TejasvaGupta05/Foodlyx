@@ -9,6 +9,7 @@ import DonorDashboard from './pages/DonorDashboard';
 import NGODashboard from './pages/NGODashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import LiveFeed from './pages/LiveFeed';
+import Charity from './pages/Charity';
 import AnimalShelterDashboard from './pages/AnimalShelterDashboard';
 import CompostUnitDashboard from './pages/CompostUnitDashboard';
 
@@ -47,6 +48,7 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/feed" element={<LiveFeed />} />
+        <Route path="/charity" element={<Charity />} />
         <Route path="/donor" element={
           <ProtectedRoute allowedRoles={['donor']}>
             <DonorDashboard />

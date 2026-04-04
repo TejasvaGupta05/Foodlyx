@@ -7,7 +7,7 @@ try {
 
 // Initialize with rich dummy data, community data, and specific quick-login accounts
 if (!_db || !_db.users || !_db.users.find(u => u.email === 'donor@foodlyx.com') || !_db.communityPosts) {
-  _db = { users: [], requests: [], communityPosts: [], idCounter: 100 };
+  _db = { users: [], requests: [], communityPosts: [], donations: [], idCounter: 100 };
   
   _db.users = [
     { _id: 'demo_donor', name: 'Premium Foods', email: 'donor@foodlyx.com', role: 'donor', password: 'pass123', token: 'demo-token-1', impactScore: 2450 },
@@ -198,6 +198,26 @@ const api = {
         return { data: db.requests[reqIndex] };
       }
     }
+
+    if (url === '/charity/donate') {
+      db.idCounter++;
+      const donation = {
+        _id: 'dn' + db.idCounter,
+        donorId: getUserIdFromToken(),
+        donorName: payload.donorName,
+        donorEmail: payload.donorEmail,
+        donorPhone: payload.donorPhone || '',
+        amount: payload.amount,
+        message: payload.message || '',
+        status: 'completed',
+        transactionId: 'TXN-' + Date.now(),
+        createdAt: new Date().toISOString()
+      };
+      db.donations.push(donation);
+      setDB(db);
+      return { data: donation };
+    }
+
     return Promise.reject({ response: { data: { message: 'Not Found' } } });
   },
   patch: async (url, payload) => {
