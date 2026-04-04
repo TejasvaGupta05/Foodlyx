@@ -37,7 +37,7 @@ const DONOR_CATEGORY_LABELS = {
 // ── Reusable section card ────────────────────────────────────────────────────
 function SectionCard({ title, icon: Icon, children, accentClass = 'text-green-400' }) {
   return (
-    <div className="bg-white dark:bg-[#111916]/70 dark:backdrop-blur-md border border-[#e5e7eb] dark:border-green-900/30 rounded-2xl p-6 shadow-sm hover:shadow-md dark:shadow-none transition-all">
+    <div className="warm-card p-6 hover:shadow-md transition-all">
       <h2 className={`flex items-center gap-2 text-sm font-bold uppercase tracking-widest mb-5 ${accentClass}`}>
         <Icon className="w-4 h-4" />
         {title}
@@ -183,7 +183,7 @@ export default function UserProfile() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen pt-20 pb-16 px-4 hero-bg">
+    <div className="warm-page min-h-screen pt-20 pb-16 px-4">
       <div className="max-w-4xl mx-auto">
 
         {/* ── Page Header ── */}
@@ -217,7 +217,7 @@ export default function UserProfile() {
         )}
 
         {/* ── Hero avatar card ── */}
-        <div className="mb-6 bg-white dark:bg-[#111916]/70 dark:backdrop-blur-md border border-[#e5e7eb] dark:border-green-900/30 rounded-2xl p-6 shadow-sm flex flex-col sm:flex-row items-center sm:items-start gap-5">
+      <div className="warm-card p-6 flex flex-col sm:flex-row items-center sm:items-start gap-5 mb-6">
           {/* Avatar */}
           <div className="relative flex-shrink-0">
             {p?.photoURL ? (
@@ -280,7 +280,7 @@ export default function UserProfile() {
 
         {/* ── Edit form (inline) ── */}
         {editing && (
-          <div className="mb-6 bg-white dark:bg-[#111916]/70 dark:backdrop-blur-md border border-[#16a34a]/30 dark:border-green-500/30 rounded-2xl p-6 shadow-md fade-in">
+          <div className="mb-6 warm-card border border-green-200 p-6 shadow-md fade-in">
             <h2 className="text-sm font-bold text-[#16a34a] dark:text-green-400 uppercase tracking-widest mb-5 flex items-center gap-2">
               <Edit3 className="w-4 h-4" /> Edit Information
             </h2>

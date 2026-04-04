@@ -5,25 +5,60 @@ import { useGoogleAuth, RoleSelectModal } from '../context/GoogleAuth';
 import { auth, db } from '../firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
-import { Leaf, Mail, Lock, User, MapPin, AlertCircle } from 'lucide-react';
+import { Mail, Lock, User, MapPin, AlertCircle, ArrowRight, Phone, Tag, Building2 } from 'lucide-react';
+import plate1 from '../assets/graphics/Food_Plate_Graphic.png';
+import plate4 from '../assets/graphics/Food_Plate_Graphic4.png';
 
-const roles = [
-  { value: 'donor', label: 'Food Donor' },
-  { value: 'ngo', label: 'NGO' },
-  { value: 'animal_shelter', label: 'Animal Shelter' },
-  { value: 'compost_unit', label: 'Compost Unit' },
+const ROLES = [
+  { value: 'donor',         label: '🍱 Food Donor',     color: '#22C55E' },
+  { value: 'ngo',           label: '🤝 NGO / Charity',  color: '#3B82F6' },
+  { value: 'animal_shelter',label: '🐾 Animal Shelter', color: '#F59E0B' },
+  { value: 'compost_unit',  label: '🌿 Compost Unit',   color: '#16A34A' },
 ];
 
+const DONOR_CATEGORIES = [
+  { value: 'individual',        label: 'Individual' },
+  { value: 'mess',              label: 'Mess' },
+  { value: 'hotels_restaurants',label: 'Hotels / Restaurants' },
+  { value: 'party_gathering',   label: 'Party / Gathering' },
+  { value: 'other',             label: 'Other' },
+];
+
+const GoogleIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 48 48">
+    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+  </svg>
+);
+
+// Reusable warm input wrapper
+function WarmInput({ icon: Icon, children }) {
+  return (
+    <div className="relative">
+      {Icon && <Icon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: '#94A3B8' }} />}
+      {children}
+    </div>
+  );
+}
+
+const inputClass = "w-full py-3 rounded-xl text-sm focus:outline-none transition-all";
+const inputStyle = { background: '#F8FAFC', border: '1.5px solid #E2E8F0', color: '#1C2B22' };
+
 export default function Signup() {
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'donor', lat: '', lng: '', address: '', contactPhone: '', donorCategory: 'individual' });
-  const [error, setError] = useState('');
+  const [form, setForm] = useState({
+    name: '', email: '', password: '', role: 'donor',
+    lat: '', lng: '', address: '', contactPhone: '', donorCategory: 'individual',
+  });
+  const [error, setError]   = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
-  const navigate = useNavigate();
+  const navigate  = useNavigate();
 
   const {
     signInWithGoogle, googleLoading, googleError,
-    pendingGoogleUser, handleRoleConfirm, handleRoleCancel
+    pendingGoogleUser, handleRoleConfirm, handleRoleCancel,
   } = useGoogleAuth();
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
@@ -40,13 +75,7 @@ export default function Signup() {
     setError('');
     setLoading(true);
     try {
-      console.log('Starting signup process...');
-
-      // 1. Create user in Firebase Auth
       const { user: firebaseUser } = await createUserWithEmailAndPassword(auth, form.email, form.password);
-      console.log('Firebase Auth user created:', firebaseUser.uid);
-
-      // 2. Prepare user profile document
       const userData = {
         name: form.name,
         email: form.email,
@@ -60,43 +89,21 @@ export default function Signup() {
         impactScore: 0,
         createdAt: new Date().toISOString(),
       };
-      console.log('User data to save:', userData);
-
-      // 3. Save profile to Firestore — MUST await so data is available on next login
       await setDoc(doc(db, 'users', firebaseUser.uid), userData);
-      console.log('Firestore document saved successfully');
-
-      // 4. Update context immediately so redirection works right away
       const fullUserData = { uid: firebaseUser.uid, ...userData };
       login(fullUserData);
-      console.log('Context updated with user data:', fullUserData);
-
-      // 5. Small delay to ensure context is updated before navigation
       await new Promise(resolve => setTimeout(resolve, 100));
-
-      // 6. Navigate based on role
-      let redirectPath;
-      if (form.role === 'donor') redirectPath = '/donor';
-      else if (form.role === 'admin') redirectPath = '/admin';
-      else if (form.role === 'animal_shelter') redirectPath = '/shelter';
-      else if (form.role === 'compost_unit') redirectPath = '/compost';
-      else redirectPath = '/ngo';
-
-      console.log('Navigating to:', redirectPath);
-      navigate(redirectPath);
-
+      if (form.role === 'donor') navigate('/donor');
+      else if (form.role === 'animal_shelter') navigate('/shelter');
+      else if (form.role === 'compost_unit') navigate('/compost');
+      else navigate('/ngo');
     } catch (err) {
-      console.error('Signup error:', err);
-      const msg = err.code === 'auth/email-already-in-use'
-        ? 'This email is already registered. Try logging in instead.'
-        : err.code === 'auth/weak-password'
-          ? 'Password must be at least 6 characters.'
-          : err.code === 'auth/invalid-email'
-            ? 'Please enter a valid email address.'
-            : err.code?.includes('firestore') || err.message?.includes('offline')
-              ? 'Account created but profile save failed. Check your Firestore setup.'
-              : err.message || 'Signup failed. Please try again.';
-      setError(msg);
+      setError(
+        err.code === 'auth/email-already-in-use' ? 'This email is already registered. Try logging in instead.'
+          : err.code === 'auth/weak-password' ? 'Password must be at least 6 characters.'
+          : err.code === 'auth/invalid-email' ? 'Please enter a valid email address.'
+          : err.message || 'Signup failed. Please try again.'
+      );
     } finally {
       setLoading(false);
     }
@@ -112,140 +119,177 @@ export default function Signup() {
         />
       )}
 
-      <div className="hero-bg min-h-screen flex items-center justify-center px-4 pt-16 pb-10">
-        <div className="w-full max-w-md glass p-8 glow fade-in">
-          <div className="flex items-center gap-2 mb-8">
-            <div className="w-9 h-9 rounded-xl bg-green-500/20 border border-green-500/30 flex items-center justify-center">
-              <Leaf className="w-5 h-5 text-green-400" />
+      <div
+        className="min-h-screen flex items-center justify-center px-4 pt-16 pb-10 relative overflow-hidden"
+        style={{ background: 'linear-gradient(135deg, #FFF7ED 0%, #ECFDF5 100%)' }}
+      >
+        {/* Decorative plates */}
+        <img src={plate1} alt="" className="absolute -right-8 top-20 w-36 h-36 object-contain opacity-20 animate-float-1 pointer-events-none hidden md:block" />
+        <img src={plate4} alt="" className="absolute -left-6 bottom-16 w-32 h-32 object-contain opacity-20 animate-float-2 pointer-events-none hidden md:block" />
+
+        <div
+          className="w-full max-w-lg relative z-10 slide-up"
+          style={{ background: '#FFFFFF', borderRadius: '24px', boxShadow: '0 20px 60px rgba(0,0,0,0.08)', border: '1px solid #F1F5F9', padding: '40px' }}
+        >
+          {/* Logo */}
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-xl overflow-hidden" style={{ border: '1px solid #DCFCE7' }}>
+              <img src="/logo.jpeg" alt="Foodlyx" className="w-full h-full object-cover" />
             </div>
-            <span className="font-bold text-lg gradient-text">FOODLYX</span>
+            <span className="font-black text-xl tracking-wide" style={{ color: '#16A34A' }}>FOODLYX</span>
           </div>
 
-          <h2 className="text-2xl font-bold text-white mb-1">Create account</h2>
-          <p className="text-green-400/60 text-sm mb-8">Join the food redistribution network</p>
+          <h1 className="text-3xl font-black mb-1" style={{ fontFamily: "'Playfair Display', serif", color: '#1C2B22' }}>
+            Join the network
+          </h1>
+          <p className="text-sm mb-7" style={{ color: '#64748B' }}>Connect with communities saving food and changing lives.</p>
 
+          {/* Error */}
           {(error || googleError) && (
-            <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm mb-6">
+            <div className="flex items-center gap-2 p-3 rounded-xl text-sm mb-5"
+              style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626' }}>
               <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error || googleError}
             </div>
           )}
 
-          {/* Google Sign-Up */}
+          {/* Google button */}
           <button
-            type="button"
-            onClick={signInWithGoogle}
-            disabled={googleLoading || loading}
-            className="w-full flex items-center justify-center gap-3 py-3 mb-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-white font-medium text-sm transition-all disabled:opacity-60"
+            type="button" onClick={signInWithGoogle} disabled={googleLoading || loading}
+            className="w-full flex items-center justify-center gap-3 py-3 mb-5 rounded-xl font-medium text-sm transition-all disabled:opacity-60 hover:-translate-y-0.5"
+            style={{ background: '#F8FAFC', border: '1.5px solid #E2E8F0', color: '#334155', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}
           >
-            <svg width="18" height="18" viewBox="0 0 48 48">
-              <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
-              <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
-              <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
-              <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
-            </svg>
+            <GoogleIcon />
             {googleLoading ? 'Continuing with Google...' : 'Sign up with Google'}
           </button>
 
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex-1 h-px bg-green-900/40" />
-            <span className="text-xs text-green-400/40">or create with email</span>
-            <div className="flex-1 h-px bg-green-900/40" />
+          <div className="flex items-center gap-3 mb-5">
+            <div className="flex-1 h-px" style={{ background: '#F1F5F9' }} />
+            <span className="text-xs font-medium" style={{ color: '#94A3B8' }}>or create with email</span>
+            <div className="flex-1 h-px" style={{ background: '#F1F5F9' }} />
           </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            {/* Role selector — visual cards */}
             <div>
-              <label className="text-xs text-green-400/60 mb-1.5 block">Full Name</label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-400/40" />
+              <label className="text-xs font-semibold mb-2 block" style={{ color: '#475569' }}>I am joining as a…</label>
+              <div className="grid grid-cols-2 gap-2">
+                {ROLES.map(({ value, label, color }) => (
+                  <button
+                    key={value} type="button"
+                    onClick={() => setForm({ ...form, role: value })}
+                    className="py-2.5 px-3 rounded-xl text-xs font-semibold text-left transition-all"
+                    style={{
+                      border: `2px solid ${form.role === value ? color : '#E2E8F0'}`,
+                      background: form.role === value ? `${color}15` : '#F8FAFC',
+                      color: form.role === value ? color : '#64748B',
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Full Name */}
+            <div>
+              <label className="text-xs font-semibold mb-1.5 block" style={{ color: '#475569' }}>Full Name / Organisation</label>
+              <WarmInput icon={User}>
                 <input type="text" name="name" value={form.name} onChange={handleChange} required
-                  placeholder="Your organization / name"
-                  className="w-full pl-10 pr-4 py-3 bg-green-900/10 border border-green-900/40 rounded-lg text-white placeholder:text-green-400/30 focus:outline-none focus:border-green-500/50 text-sm transition-colors" />
+                  placeholder="Your name or organisation"
+                  className={`${inputClass} pl-10 pr-4`} style={inputStyle}
+                  onFocus={e => e.target.style.borderColor = '#22C55E'} onBlur={e => e.target.style.borderColor = '#E2E8F0'} />
+              </WarmInput>
+            </div>
+
+            {/* Email + Password */}
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-semibold mb-1.5 block" style={{ color: '#475569' }}>Email</label>
+                <WarmInput icon={Mail}>
+                  <input type="email" name="email" value={form.email} onChange={handleChange} required
+                    placeholder="you@example.com"
+                    className={`${inputClass} pl-10 pr-4`} style={inputStyle}
+                    onFocus={e => e.target.style.borderColor = '#22C55E'} onBlur={e => e.target.style.borderColor = '#E2E8F0'} />
+                </WarmInput>
+              </div>
+              <div>
+                <label className="text-xs font-semibold mb-1.5 block" style={{ color: '#475569' }}>Password</label>
+                <WarmInput icon={Lock}>
+                  <input type="password" name="password" value={form.password} onChange={handleChange} required
+                    placeholder="Min 6 characters"
+                    className={`${inputClass} pl-10 pr-4`} style={inputStyle}
+                    onFocus={e => e.target.style.borderColor = '#22C55E'} onBlur={e => e.target.style.borderColor = '#E2E8F0'} />
+                </WarmInput>
               </div>
             </div>
 
+            {/* Phone */}
             <div>
-              <label className="text-xs text-green-400/60 mb-1.5 block">Role</label>
-              <select name="role" value={form.role} onChange={handleChange}
-                className="w-full px-4 py-3 bg-green-900/10 border border-green-900/40 rounded-lg text-white focus:outline-none focus:border-green-500/50 text-sm transition-colors">
-                {roles.map(({ value, label }) => <option key={value} value={value} className="bg-[#0a0f0d]">{label}</option>)}
-              </select>
-            </div>
-
-            <div>
-              <label className="text-xs text-green-400/60 mb-1.5 block">Email</label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-400/40" />
-                <input type="email" name="email" value={form.email} onChange={handleChange} required
-                  placeholder="you@example.com"
-                  className="w-full pl-10 pr-4 py-3 bg-green-900/10 border border-green-900/40 rounded-lg text-white placeholder:text-green-400/30 focus:outline-none focus:border-green-500/50 text-sm transition-colors" />
-              </div>
-            </div>
-
-            <div>
-              <label className="text-xs text-green-400/60 mb-1.5 block">Password</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-400/40" />
-                <input type="password" name="password" value={form.password} onChange={handleChange} required
-                  placeholder="Min 6 characters"
-                  className="w-full pl-10 pr-4 py-3 bg-green-900/10 border border-green-900/40 rounded-lg text-white placeholder:text-green-400/30 focus:outline-none focus:border-green-500/50 text-sm transition-colors" />
-              </div>
-            </div>
-
-            <div>
-              <label className="text-xs text-green-400/60 mb-1.5 block">Phone Number</label>
-              <div className="relative">
+              <label className="text-xs font-semibold mb-1.5 block" style={{ color: '#475569' }}>Phone Number</label>
+              <WarmInput icon={Phone}>
                 <input type="tel" name="contactPhone" value={form.contactPhone} onChange={handleChange} required
                   placeholder="Your contact number"
-                  className="w-full px-4 py-3 bg-green-900/10 border border-green-900/40 rounded-lg text-white placeholder:text-green-400/30 focus:outline-none focus:border-green-500/50 text-sm transition-colors" />
-              </div>
+                  className={`${inputClass} pl-10 pr-4`} style={inputStyle}
+                  onFocus={e => e.target.style.borderColor = '#22C55E'} onBlur={e => e.target.style.borderColor = '#E2E8F0'} />
+              </WarmInput>
             </div>
 
+            {/* Address */}
             <div>
-              <label className="text-xs text-green-400/60 mb-1.5 block">Full Address</label>
-              <div className="relative">
+              <label className="text-xs font-semibold mb-1.5 block" style={{ color: '#475569' }}>Full Address</label>
+              <WarmInput icon={Building2}>
                 <input type="text" name="address" value={form.address} onChange={handleChange} required
-                  placeholder="Your full address/location"
-                  className="w-full px-4 py-3 bg-green-900/10 border border-green-900/40 rounded-lg text-white placeholder:text-green-400/30 focus:outline-none focus:border-green-500/50 text-sm transition-colors" />
-              </div>
+                  placeholder="Your full address / location"
+                  className={`${inputClass} pl-10 pr-4`} style={inputStyle}
+                  onFocus={e => e.target.style.borderColor = '#22C55E'} onBlur={e => e.target.style.borderColor = '#E2E8F0'} />
+              </WarmInput>
             </div>
 
+            {/* Donor Category */}
             {form.role === 'donor' && (
               <div>
-                <label className="text-xs text-green-400/60 mb-1.5 block">Donor Category</label>
-                <select name="donorCategory" value={form.donorCategory} onChange={handleChange}
-                  className="w-full px-4 py-3 bg-green-900/10 border border-green-900/40 rounded-lg text-white focus:outline-none focus:border-green-500/50 text-sm transition-colors">
-                  <option value="individual" className="bg-[#0a0f0d]">Individual</option>
-                  <option value="mess" className="bg-[#0a0f0d]">Mess</option>
-                  <option value="hotels_restaurants" className="bg-[#0a0f0d]">Hotels/Restaurants</option>
-                  <option value="party_gathering" className="bg-[#0a0f0d]">Party/Gathering</option>
-                  <option value="other" className="bg-[#0a0f0d]">Other</option>
-                </select>
+                <label className="text-xs font-semibold mb-1.5 block" style={{ color: '#475569' }}>Donor Category</label>
+                <WarmInput icon={Tag}>
+                  <select name="donorCategory" value={form.donorCategory} onChange={handleChange}
+                    className={`${inputClass} pl-10 pr-4`} style={inputStyle}>
+                    {DONOR_CATEGORIES.map(({ value, label }) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
+                  </select>
+                </WarmInput>
               </div>
             )}
 
+            {/* Location */}
             <div>
-              <label className="text-xs text-green-400/60 mb-1.5 block">Location (Lat, Lng)</label>
+              <label className="text-xs font-semibold mb-1.5 block" style={{ color: '#475569' }}>GPS Coordinates (optional)</label>
               <div className="flex gap-2">
                 <input type="text" name="lat" value={form.lat} onChange={handleChange} placeholder="Latitude"
-                  className="flex-1 w-10 px-3 py-3 bg-green-900/10 border border-green-900/40 rounded-lg text-white placeholder:text-green-400/30 focus:outline-none focus:border-green-500/50 text-sm transition-colors" />
+                  className={`flex-1 px-3 ${inputClass}`} style={inputStyle}
+                  onFocus={e => e.target.style.borderColor = '#22C55E'} onBlur={e => e.target.style.borderColor = '#E2E8F0'} />
                 <input type="text" name="lng" value={form.lng} onChange={handleChange} placeholder="Longitude"
-                  className="flex-1 w-10 px-3 py-3 bg-green-900/10 border border-green-900/40 rounded-lg text-white placeholder:text-green-400/30 focus:outline-none focus:border-green-500/50 text-sm transition-colors" />
-                <button type="button" onClick={handleGeolocate}
-                  className="px-3 py-3 bg-green-900/20 border border-green-900/40 rounded-lg text-green-400 hover:bg-green-900/40 transition-colors" title="Get location">
+                  className={`flex-1 px-3 ${inputClass}`} style={inputStyle}
+                  onFocus={e => e.target.style.borderColor = '#22C55E'} onBlur={e => e.target.style.borderColor = '#E2E8F0'} />
+                <button type="button" onClick={handleGeolocate} title="Use my location"
+                  className="px-3 py-3 rounded-xl transition-all hover:-translate-y-0.5"
+                  style={{ background: '#DCFCE7', color: '#16A34A', border: '1.5px solid #22C55E' }}>
                   <MapPin className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
-            <button type="submit" disabled={loading}
-              className="w-full py-3 bg-green-600 hover:bg-green-500 disabled:opacity-60 text-white rounded-lg font-semibold transition-all mt-2">
-              {loading ? 'Creating account...' : 'Create Account'}
+            <button
+              type="submit" disabled={loading}
+              className="w-full py-3.5 rounded-xl font-bold text-white transition-all disabled:opacity-60 flex items-center justify-center gap-2 mt-2"
+              style={{ background: 'linear-gradient(135deg,#22C55E,#16A34A)', boxShadow: '0 6px 20px rgba(34,197,94,0.35)' }}
+            >
+              {loading ? 'Creating account...' : <><span>Create Account</span><ArrowRight className="w-4 h-4" /></>}
             </button>
           </form>
 
-          <p className="text-center text-sm text-green-400/50 mt-6">
+          <p className="text-center text-sm mt-6" style={{ color: '#64748B' }}>
             Already have an account?{' '}
-            <Link to="/login" className="text-green-400 hover:text-green-300 font-medium">Sign in</Link>
+            <Link to="/login" className="font-semibold" style={{ color: '#16A34A' }}>Sign in</Link>
           </p>
         </div>
       </div>

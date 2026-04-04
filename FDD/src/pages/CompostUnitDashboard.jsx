@@ -1,192 +1,228 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase';
-import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
-import { Truck, Sprout, Recycle, Trash2, MessageSquare, Plus } from 'lucide-react';
+import { collection, query, where, onSnapshot, doc, updateDoc, limit } from 'firebase/firestore';
+import { Recycle, Truck, MessageSquare, Plus, Leaf, X, Filter } from 'lucide-react';
 import FoodCard from '../components/FoodCard';
 import FeedbackForm from '../components/FeedbackForm';
 import FeedbackDisplay from '../components/FeedbackDisplay';
 
+const TABS = [
+  { key: 'available', label: '🌿 Waste Batches',    desc: 'Non-edible food for composting' },
+  { key: 'accepted',  label: '🚛 Active Hauling',   desc: 'Batches your unit has accepted'  },
+  { key: 'feedback',  label: '💬 Feedback',          desc: 'Submitted feedback history'      },
+];
+
 export default function CompostUnitDashboard() {
   const { user } = useAuth();
-  const [requests, setRequests] = useState([]);
+  const [requests, setRequests]     = useState([]);
   const [myRequests, setMyRequests] = useState([]);
-  const [loading, setLoading] = useState(true);
-  
-  // Compost default focuses strictly on completely un-edible food types / waste stock
-  const [filters, setFilters] = useState({ category: 'non_edible', urgency: '' });
-  const [tab, setTab] = useState('available');
-  const [toast, setToast] = useState('');
-  const [feedbacks, setFeedbacks] = useState([]);
+  const [feedbacks, setFeedbacks]   = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [filters, setFilters]       = useState({ category: '', urgency: '' });
+  const [tab, setTab]               = useState('available');
+  const [toast, setToast]           = useState({ msg: '', type: 'success' });
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
 
-  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
+  const showToast = (msg, type = 'success') => { setToast({ msg, type }); setTimeout(() => setToast({ msg: '', type: 'success' }), 3000); };
 
-  const fetchRequests = async () => {
-    try {
-      const params = new URLSearchParams();
-      if (filters.category !== 'all') params.set('category', filters.category);
-      
-      const { data } = await api.get(`/requests?${params}`);
-      
-      // Client-side filtering for urgency
-      let filtered = data;
-      if (filters.urgency) {
-        filtered = filtered.filter(req => req.urgency === filters.urgency);
-      }
-      
-      // Client-side filtering logic to showcase food that is 100% perished or waste
-      if(filters.category === 'non_edible') {
-         filtered = data.filter(d => ['perishable_food', 'dry_food'].includes(d.category));
-      }
-      setRequests(filtered);
-
-      const myData = await api.get('/requests/my');
-      setMyRequests(myData.data);
-    } catch { } finally { setLoading(false); }
-  };
-
-  const fetchFeedbacks = () => {
-    if (!user?.uid) return;
-    const q = query(
-      collection(db, 'feedbacks'),
-      where('submittedById', '==', user.uid),
-      orderBy('createdAt', 'desc')
-    );
-    const unsub = onSnapshot(q, (snap) => {
-      setFeedbacks(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, (err) => console.warn('Feedback listener error:', err.message));
-    return unsub;
-  };
-
-  useEffect(() => { fetchRequests(); }, [filters]);
-
+  // Available compost-suitable requests
   useEffect(() => {
-    const unsub = fetchFeedbacks();
-    return () => unsub?.();
+    setLoading(true);
+    const q = query(collection(db, 'foodRequests'), where('status', '==', 'pending'), limit(100));
+    return onSnapshot(q, (snap) => {
+      let data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      data.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0));
+      if (filters.category) {
+        data = data.filter(r => r.foodUsabilityCategory === filters.category || r.foodCategory === filters.category);
+      } else {
+        // Default: prefer fertilizer_compost and perishable
+        data = data.filter(r => r.foodUsabilityCategory === 'fertilizer_compost' || r.foodCategory === 'perishable_food');
+      }
+      if (filters.urgency) data = data.filter(r => r.urgency === filters.urgency);
+      setRequests(data);
+      setLoading(false);
+    }, err => { console.warn(err.message); setLoading(false); });
+  }, [filters]);
+
+  // My hauling
+  useEffect(() => {
+    if (!user?.uid) return;
+    const q = query(collection(db, 'foodRequests'), where('acceptedByUid', '==', user.uid));
+    return onSnapshot(q, (snap) => {
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      data.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0));
+      setMyRequests(data);
+    }, err => console.warn(err.message));
   }, [user?.uid]);
 
+  // Feedback
+  useEffect(() => {
+    if (!user?.uid) return;
+    const q = query(collection(db, 'feedbacks'), where('submittedById', '==', user.uid));
+    return onSnapshot(q, (snap) => {
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      data.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0));
+      setFeedbacks(data);
+    }, err => console.warn(err.message));
+  }, [user?.uid]);
 
   const handleAccept = async (id) => {
     try {
-      await api.post(`/requests/${id}/accept`);
-      showToast('Compost route generated!');
-      fetchRequests();
-    } catch (err) {
-      showToast(err.response?.data?.message || 'Failed to accept');
-    }
+      await updateDoc(doc(db, 'foodRequests', id), {
+        status: 'accepted', acceptedByUid: user.uid,
+        acceptedByName: user.name || user.email, acceptedByRole: user.role,
+        acceptedAt: new Date().toISOString(),
+      });
+      showToast('♻️ Compost route confirmed! Waste will be repurposed.');
+    } catch (err) { showToast('Failed: ' + err.message, 'error'); }
   };
 
   const handleDeliver = async (id) => {
     try {
-      await api.patch(`/requests/${id}/deliver`);
-      showToast('Dumped to Composter!');
-      fetchRequests();
-    } catch { }
+      await updateDoc(doc(db, 'foodRequests', id), { status: 'delivered', deliveredAt: new Date().toISOString() });
+      showToast('✅ Waste delivered to composting unit!');
+    } catch (err) { showToast('Failed: ' + err.message, 'error'); }
   };
 
-  const openFeedbackModal = (request) => {
-    setSelectedRequest(request);
-    setShowFeedbackModal(true);
-  };
-
-  const handleFeedbackSubmit = (newFeedback) => {
-    showToast('Feedback submitted!');
-  };
-
-  const handleResolveFeedback = (feedbackId) => {
-    setFeedbacks(feedbacks.map(f => f.id === feedbackId ? { ...f, resolutionStatus: 'resolved' } : f));
-    showToast('Marked as resolved!');
-  };
+  const hasFilters = filters.category || filters.urgency;
+  const totalRepurposed = myRequests.filter(r => r.status === 'delivered').reduce((sum, r) => sum + (parseFloat(r.quantity) || 0), 0);
 
   return (
-    <div className="min-h-screen pt-20 pb-16 px-4 hero-bg">
-      <div className="max-w-5xl mx-auto">
-        {/* Header - Earthy Stone/Lime styling */}
-        <div className="mb-8 p-6 bg-stone-800/60 border border-stone-500/30 rounded-2xl glass shadow-lg">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-             <div className="flex items-center gap-3 mb-2">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-lime-600 to-stone-700 border border-lime-500/40 text-lime-400 flex items-center justify-center shadow-lg">
-                   <Recycle className="w-6 h-6" />
-                </div>
-                <div>
-                   <h1 className="text-3xl font-black text-white">Compost Hub</h1>
-                   <p className="text-lime-400/60 mt-1 text-sm font-medium">
-                     {user?.name}
-                     {!user?.isVerified && <span className="ml-2 text-yellow-400 text-xs">(Pending verification)</span>}
-                   </p>
-                </div>
-             </div>
-             
-             <div className="px-5 py-3 rounded-xl bg-black/40 border border-stone-700/50 flex flex-col items-center">
-                <span className="text-xs text-stone-400 uppercase tracking-widest font-bold">Waste Repurposed</span>
-                <span className="text-2xl font-black text-lime-400">1,240 <span className="text-sm text-lime-400/50">Kg</span></span>
-             </div>
-          </div>
-        </div>
+    <div className="warm-page min-h-screen pt-20 pb-16">
+      <div className="max-w-6xl mx-auto px-6">
 
         {/* Toast */}
-        {toast && (
-          <div className="fixed top-20 right-4 z-50 px-4 py-3 bg-stone-700 border border-lime-500/50 text-lime-300 text-sm rounded-lg shadow-[0_0_20px_rgba(101,163,13,0.3)] fade-in">
-            {toast}
+        {toast.msg && (
+          <div className="fixed top-20 right-4 z-50 px-5 py-3 rounded-2xl text-sm font-bold shadow-lg fade-in"
+            style={{ background: toast.type === 'error' ? '#FEF2F2' : '#ECFDF5', color: toast.type === 'error' ? '#DC2626' : '#059669', border: `1px solid ${toast.type === 'error' ? '#FECACA' : '#6EE7B7'}` }}>
+            {toast.msg}
           </div>
         )}
 
-        {/* Tabs */}
-        <div className="flex gap-2 mb-6 border-b border-stone-800/80 pb-4">
-          {['waste sonar', 'active hauling', 'feedback'].map(t => {
-            const mappedTab = t === 'waste sonar' ? 'available' : t === 'active hauling' ? 'accepted' : 'feedback';
-            return (
-               <button key={t} onClick={() => setTab(mappedTab)}
-                  className={`px-4 py-2 rounded-lg text-sm font-bold transition-all uppercase tracking-wider flex items-center gap-2 ${tab === mappedTab ? 'bg-stone-700 text-lime-400 border border-lime-500/30 shadow-[0_0_15px_rgba(101,163,13,0.15)]' : 'glass text-stone-500/80 hover:text-stone-300'}`}>
-                  {t === 'feedback' && <MessageSquare className="w-4 h-4" />}
-                  {t}
-               </button>
-            )
-          })}
+        {/* Header */}
+        <div className="mb-8">
+          <span className="warm-badge mb-3 inline-flex" style={{ background: '#ECFDF5', color: '#059669' }}>
+            🌿 Compost Unit Portal
+          </span>
+          <h1 className="text-4xl font-black mb-1" style={{ fontFamily: "'Playfair Display', serif", color: '#1C2B22' }}>
+            Compost Hub Dashboard
+          </h1>
+          <p className="text-base" style={{ color: '#64748B' }}>
+            {user?.name}
+            {!user?.isVerified && <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: '#ECFDF5', color: '#059669' }}>⏳ Pending Verification</span>}
+          </p>
         </div>
 
+        {/* Stats */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+          {[
+            { label: 'Available Waste',  value: requests.length,                                          emoji: '🗑️', color: '#059669', bg: '#ECFDF5' },
+            { label: 'Hauling Active',   value: myRequests.filter(r => r.status === 'accepted').length,   emoji: '🚛', color: '#3B82F6', bg: '#DBEAFE' },
+            { label: 'Composted',        value: myRequests.filter(r => r.status === 'delivered').length,  emoji: '✅', color: '#16A34A', bg: '#DCFCE7' },
+            { label: 'Kg Repurposed',   value: `${totalRepurposed.toFixed(0)}`,                          emoji: '♻️', color: '#D97706', bg: '#FEF3C7' },
+          ].map(({ label, value, emoji, color, bg }) => (
+            <div key={label} className="warm-card p-5 text-center hover:-translate-y-1 transition-all">
+              <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-2xl mx-auto mb-2" style={{ background: bg }}>{emoji}</div>
+              <div className="text-2xl font-black" style={{ color }}>{value}</div>
+              <div className="text-xs font-medium" style={{ color: '#94A3B8' }}>{label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Environmental impact callout */}
+        <div className="warm-card p-5 mb-8 flex items-center gap-4" style={{ border: '1px solid #6EE7B7', background: 'linear-gradient(135deg,#F0FDF4,#ECFDF5)' }}>
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl flex-shrink-0" style={{ background: '#DCFCE7' }}>
+            🌍
+          </div>
+          <div>
+            <p className="font-black text-lg" style={{ color: '#1C2B22' }}>
+              {totalRepurposed.toFixed(0)} kg of waste diverted from landfill
+            </p>
+            <p className="text-sm" style={{ color: '#64748B' }}>
+              Every gram composted is a step toward a healthier planet 🌱
+            </p>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-2 mb-6 flex-wrap">
+          {TABS.map(({ key, label }) => (
+            <button key={key} onClick={() => setTab(key)}
+              className="px-5 py-2.5 rounded-2xl text-sm font-bold transition-all"
+              style={{
+                background: tab === key ? '#059669' : '#FFFFFF',
+                color: tab === key ? '#FFFFFF' : '#64748B',
+                border: tab === key ? '2px solid #059669' : '2px solid #F1F5F9',
+                boxShadow: tab === key ? '0 4px 12px rgba(5,150,105,0.25)' : 'none',
+              }}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Available Tab */}
         {tab === 'available' && (
           <>
+            <div className="flex items-start gap-3 p-4 rounded-2xl mb-5" style={{ background: '#ECFDF5', border: '1px solid #6EE7B7' }}>
+              <Leaf className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: '#059669' }} />
+              <p className="text-sm" style={{ color: '#065F46' }}>
+                Showing compost-suitable food (expired/perishable) by default. Use filters to see all categories.
+              </p>
+            </div>
+
             {/* Filters */}
-            <div className="flex gap-4 mb-6 p-4 bg-stone-900/40 rounded-xl border border-stone-800/60 shadow-inner flex-wrap">
-              <div className="flex flex-col gap-1.5 w-full sm:w-auto">
-                 <label className="text-[10px] text-stone-500 uppercase font-black tracking-widest pl-1">Waste Type</label>
-                 <select value={filters.category} onChange={e => setFilters({...filters, category: e.target.value})}
-                   className="px-4 py-2 bg-stone-950/50 border border-stone-700/50 rounded-lg text-stone-300 text-sm focus:outline-none focus:border-lime-500/50 min-w-[200px]">
-                   <option value="all">All Waste Metrics</option>
-                   <option value="non_edible">Non-Edible (100% Spoiled/Scraps)</option>
-                 </select>
-              </div>
-              <div className="flex flex-col gap-1.5 w-full sm:w-auto">
-                 <label className="text-[10px] text-stone-500 uppercase font-black tracking-widest pl-1">Haul Urgency</label>
-                 <select value={filters.urgency} onChange={e => setFilters({...filters, urgency: e.target.value})}
-                   className="px-4 py-2 bg-stone-950/50 border border-stone-700/50 rounded-lg text-stone-300 text-sm focus:outline-none focus:border-lime-500/50 min-w-[200px]">
-                   <option value="">All Urgencies</option>
-                   <option value="high">Critical Mass</option>
-                   <option value="medium">Standard Spoilage</option>
-                   <option value="low">Low Risk</option>
-                 </select>
-              </div>
+            <div className="flex flex-wrap gap-2 mb-5 items-center">
+              <span className="text-sm font-medium flex items-center gap-1" style={{ color: '#64748B' }}><Filter className="w-4 h-4" /> Filter:</span>
+              {[
+                { value: '', label: '🌿 Compost Default' },
+                { value: 'fertilizer_compost', label: '🌱 Fertilizer/Compost' },
+                { value: 'perishable_food', label: '⏰ Perishable' },
+                { value: 'animal_edible', label: '🐾 Animal Edible' },
+              ].map(({ value, label }) => (
+                <button key={value} onClick={() => setFilters({ ...filters, category: value })}
+                  className="px-3 py-1.5 rounded-full text-xs font-medium transition-all"
+                  style={{ background: filters.category === value ? '#059669' : '#FFFFFF', color: filters.category === value ? '#FFFFFF' : '#334155', border: `1.5px solid ${filters.category === value ? '#059669' : '#E2E8F0'}` }}>
+                  {label}
+                </button>
+              ))}
+              <div className="w-px h-5" style={{ background: '#E2E8F0' }} />
+              {[{ value: 'high', label: '🔴 Critical' }, { value: 'medium', label: '🟡 Medium' }, { value: 'low', label: '🟢 Low' }].map(({ value, label }) => (
+                <button key={value} onClick={() => setFilters({ ...filters, urgency: filters.urgency === value ? '' : value })}
+                  className="px-3 py-1.5 rounded-full text-xs font-medium transition-all"
+                  style={{ background: filters.urgency === value ? '#D97706' : '#FFFFFF', color: filters.urgency === value ? '#FFFFFF' : '#334155', border: `1.5px solid ${filters.urgency === value ? '#D97706' : '#E2E8F0'}` }}>
+                  {label}
+                </button>
+              ))}
+              {hasFilters && (
+                <button onClick={() => setFilters({ category: '', urgency: '' })}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium"
+                  style={{ background: '#FEF2F2', color: '#EF4444', border: '1.5px solid #FECACA' }}>
+                  <X className="w-3 h-3" /> Clear
+                </button>
+              )}
             </div>
 
             {loading ? (
-              <div className="text-center text-stone-500 py-20 font-medium animate-pulse flex flex-col items-center gap-3">
-                 <Sprout className="w-6 h-6" /> Extracting waste nodes...
+              <div className="flex flex-col items-center py-20">
+                <div className="w-10 h-10 rounded-full border-4 border-green-200 border-t-emerald-500 animate-spin mb-3" />
+                <p className="text-sm" style={{ color: '#64748B' }}>Scanning for compostable batches...</p>
               </div>
             ) : requests.length === 0 ? (
-              <div className="flex flex-col items-center justify-center text-stone-600/50 py-20 gap-3">
-                 <Trash2 className="w-12 h-12" />
-                 <span>No spoiled stockpiles detected. Ecosystem is clean!</span>
+              <div className="warm-card p-16 text-center">
+                <div className="text-5xl mb-4">🌍</div>
+                <h3 className="font-bold text-lg mb-2" style={{ color: '#1C2B22' }}>No waste batches available</h3>
+                <p className="text-sm" style={{ color: '#64748B' }}>The ecosystem is clean right now. Check back soon!</p>
               </div>
             ) : (
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
                 {requests.map(r => (
-                  <div key={r._id} className="relative group hover:-translate-y-1 transition-transform duration-300">
-                     <FoodCard request={r} onAccept={handleAccept} userRole={user?.role} />
-                     <div className="absolute -top-3 -right-3 bg-stone-800 text-lime-400 text-[10px] uppercase font-black px-3 py-1.5 rounded-full shadow-[0_5px_15px_rgba(0,0,0,0.5)] border border-lime-500/40 flex items-center gap-1.5">
-                        <Trash2 className="w-3 h-3" /> Raw Waste
-                     </div>
+                  <div key={r.id} className="relative">
+                    <FoodCard request={r} onAccept={handleAccept} userRole={user?.role} />
+                    <div className="absolute -top-2 -right-2 px-2.5 py-1 text-xs font-bold rounded-full shadow-md"
+                      style={{ background: 'linear-gradient(135deg,#059669,#16A34A)', color: '#FFFFFF' }}>
+                      🌿 Compost Grade
+                    </div>
                   </div>
                 ))}
               </div>
@@ -194,43 +230,40 @@ export default function CompostUnitDashboard() {
           </>
         )}
 
+        {/* Accepted/Hauling Tab */}
         {tab === 'accepted' && (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {myRequests.length === 0 ? (
-              <div className="col-span-3 text-center text-stone-600/50 py-20 flex flex-col items-center gap-3">
-                 <Truck className="w-12 h-12" /> No active hauling operations.
-              </div>
-            ) : myRequests.map(r => (
-               <div key={r._id} className="relative group">
-                 <FoodCard request={r} onDeliver={handleDeliver} userRole={user?.role} />
-               </div>
-            ))}
-          </div>
+          myRequests.length === 0 ? (
+            <div className="warm-card p-16 text-center">
+              <Truck className="w-12 h-12 mx-auto mb-4" style={{ color: '#CBD5E1' }} />
+              <h3 className="font-bold text-lg mb-2" style={{ color: '#1C2B22' }}>No active hauling operations</h3>
+              <p className="text-sm" style={{ color: '#64748B' }}>Accept compost batches from the Waste tab to start processing.</p>
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {myRequests.map(r => <FoodCard key={r.id} request={r} onDeliver={handleDeliver} userRole={user?.role} />)}
+            </div>
+          )
         )}
 
+        {/* Feedback Tab */}
         {tab === 'feedback' && (
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-xl font-semibold text-white">Feedback & Complaints</h2>
-              <button
-                onClick={() => setShowFeedbackModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-stone-700 hover:bg-stone-600 text-lime-400 rounded-lg transition-colors border border-lime-500/30 text-sm font-medium"
-              >
+          <div>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-black" style={{ color: '#1C2B22' }}>Feedback & Complaints</h2>
+              <button onClick={() => setShowFeedbackModal(true)}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-2xl text-white font-bold transition-all hover:-translate-y-0.5"
+                style={{ background: 'linear-gradient(135deg,#059669,#16A34A)', boxShadow: '0 4px 12px rgba(5,150,105,0.3)' }}>
                 <Plus className="w-4 h-4" /> Submit Feedback
               </button>
             </div>
-
             {feedbacks.length === 0 ? (
-              <div className="text-center text-stone-600/50 py-20">No feedback submitted yet.</div>
+              <div className="warm-card p-12 text-center">
+                <MessageSquare className="w-10 h-10 mx-auto mb-3" style={{ color: '#CBD5E1' }} />
+                <p className="text-sm font-medium" style={{ color: '#64748B' }}>No feedback submitted yet.</p>
+              </div>
             ) : (
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {feedbacks.map(feedback => (
-                  <FeedbackDisplay
-                    key={feedback.id}
-                    feedback={feedback}
-                    onResolve={handleResolveFeedback}
-                  />
-                ))}
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                {feedbacks.map(fb => <FeedbackDisplay key={fb.id} feedback={fb} />)}
               </div>
             )}
           </div>
@@ -238,12 +271,8 @@ export default function CompostUnitDashboard() {
       </div>
 
       {showFeedbackModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <FeedbackForm
-            accentColor="lime"
-            onSubmit={handleFeedbackSubmit}
-            onClose={() => setShowFeedbackModal(false)}
-          />
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <FeedbackForm accentColor="green" onSubmit={() => { showToast('🙏 Feedback submitted!'); setShowFeedbackModal(false); }} onClose={() => setShowFeedbackModal(false)} />
         </div>
       )}
     </div>

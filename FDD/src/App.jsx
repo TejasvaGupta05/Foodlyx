@@ -1,6 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
-import { useEffect, useState } from 'react';
 import Navbar from './components/Navbar';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
@@ -28,28 +27,9 @@ function ProtectedRoute({ children, allowedRoles }) {
 }
 
 export default function App() {
-  const [theme, setTheme] = useState('dark');
-
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark' || savedTheme === 'light') {
-      setTheme(savedTheme);
-    }
-  }, []);
-
-  useEffect(() => {
-    document.documentElement.classList.toggle('light', theme === 'light');
-    document.documentElement.classList.toggle('dark', theme === 'dark');
-    localStorage.setItem('theme', theme);
-  }, [theme]);
-
-  const toggleTheme = () => {
-    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
-  };
-
   return (
     <BrowserRouter>
-      <Navbar theme={theme} onToggleTheme={toggleTheme} />
+      <Navbar />
       {!isFirebaseConfigured && (
         <div className="fixed top-16 left-0 right-0 z-50 bg-amber-500/95 text-black text-center py-3 px-4 shadow-lg">
           Firebase is not configured. Copy <code className="font-mono">.env.example</code> to <code className="font-mono">.env</code> and add your <code className="font-mono">VITE_FIREBASE_*</code> keys.

@@ -1,81 +1,98 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, LayoutDashboard, Radio, Menu, X, Moon, Sun, UserCircle } from 'lucide-react';
+import { LogOut, LayoutDashboard, Radio, Menu, X, UserCircle, Users } from 'lucide-react';
 import { useState } from 'react';
 
-export default function Navbar({ theme, onToggleTheme }) {
+export default function Navbar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
-  const handleLogout = () => { logout(); navigate('/login'); };
+  const handleLogout = () => { logout(); navigate('/login'); setOpen(false); };
 
   const dashboardLink = () => {
     if (!user) return '/login';
-    if (user.role === 'donor') return '/donor';
-    if (user.role === 'ngo') return '/ngo';
-    if (user.role === 'animal_shelter') return '/shelter';
-    if (user.role === 'compost_unit') return '/compost';
-    if (user.role === 'admin') return '/admin';
-    return '/';
+    const map = { donor: '/donor', ngo: '/ngo', animal_shelter: '/shelter', compost_unit: '/compost', admin: '/admin' };
+    return map[user.role] || '/';
   };
 
+  const ROLE_COLORS = {
+    donor:          { bg: '#DCFCE7', text: '#16A34A' },
+    ngo:            { bg: '#DBEAFE', text: '#2563EB' },
+    animal_shelter: { bg: '#FEF3C7', text: '#D97706' },
+    compost_unit:   { bg: '#ECFDF5', text: '#059669' },
+    admin:          { bg: '#F3E8FF', text: '#9333EA' },
+  };
+  const roleColor = ROLE_COLORS[user?.role] || { bg: '#F1F5F9', text: '#64748B' };
+
+  const navLinkCls = "flex items-center gap-1.5 text-sm font-medium transition-colors hover:text-green-600";
+  const navLinkStyle = { color: '#475569' };
+
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-white/90 dark:bg-[#111916]/70 border-b border-[#E5E7EB] dark:border-green-900/30 shadow-sm backdrop-blur-md transition-all duration-300">
+    <nav
+      className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md"
+      style={{
+        background: 'rgba(255,255,255,0.95)',
+        borderBottom: '1px solid #F1F5F9',
+        boxShadow: '0 2px 16px rgba(0,0,0,0.06)',
+      }}
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-2 group">
-          <div className="w-9 h-9 rounded-xl bg-[#16a34a]/10 dark:bg-green-500/20 border border-[#16a34a]/20 dark:border-green-500/30 overflow-hidden group-hover:bg-[#16a34a]/20 transition-colors">
-            <img src="/logo.jpeg" alt="Foodlyx logo" className="w-full h-full object-cover" />
+        <Link to="/" className="flex items-center gap-2.5 group">
+          <div
+            className="w-9 h-9 rounded-xl overflow-hidden transition-all group-hover:scale-105"
+            style={{ border: '1.5px solid #DCFCE7', boxShadow: '0 2px 8px rgba(34,197,94,0.15)' }}
+          >
+            <img src="/logo.jpeg" alt="Foodlyx" className="w-full h-full object-cover" />
           </div>
-          <span className="font-bold text-lg text-[#16a34a] dark:gradient-text hidden sm:block">FOODLYX</span>
+          <span className="font-black text-lg tracking-wide hidden sm:block" style={{ color: '#16A34A' }}>
+            FOODLYX
+          </span>
         </Link>
 
         {/* Desktop nav */}
-        <div className="hidden md:flex items-center gap-4">
-          <Link to="/community" className="flex items-center gap-1.5 text-sm font-medium text-[#4b5563] hover:text-[#16a34a] dark:text-green-300/70 dark:hover:text-green-300 transition-colors">
-            <Radio className="w-4 h-4" /> Community
+        <div className="hidden md:flex items-center gap-5">
+          <Link to="/community" className={navLinkCls} style={navLinkStyle}>
+            <Users className="w-4 h-4" /> Community
           </Link>
-          <Link to="/feed" className="flex items-center gap-1.5 text-sm font-medium text-[#4b5563] hover:text-[#16a34a] dark:text-green-300/70 dark:hover:text-green-300 transition-colors">
+          <Link to="/feed" className={navLinkCls} style={navLinkStyle}>
             <Radio className="w-4 h-4" /> Live Feed
           </Link>
-          <button
-            onClick={onToggleTheme}
-            className="flex items-center justify-center w-9 h-9 rounded-full border border-[#e5e7eb] dark:border-green-500/30 bg-[#f9fafb] dark:bg-black/20 text-[#2563eb] hover:bg-[#e5e7eb] dark:text-green-300 dark:hover:bg-green-500/20 transition-colors"
-            aria-label="Toggle theme"
-          >
-            {theme === 'light' ? <Moon className="w-4 h-4 text-[#111827]" /> : <Sun className="w-4 h-4" />}
-          </button>
+
           {user ? (
             <>
-              <Link
-                to={dashboardLink()}
-                className="flex items-center gap-1.5 text-sm font-medium text-[#4b5563] hover:text-[#16a34a] dark:text-green-300/70 dark:hover:text-green-300 transition-colors"
-              >
+              <Link to={dashboardLink()} className={navLinkCls} style={navLinkStyle}>
                 <LayoutDashboard className="w-4 h-4" /> Dashboard
               </Link>
-              <Link
-                to="/profile"
-                className="flex items-center gap-1.5 text-sm font-medium text-[#4b5563] hover:text-[#16a34a] dark:text-green-300/70 dark:hover:text-green-300 transition-colors"
-              >
+              <Link to="/profile" className={navLinkCls} style={navLinkStyle}>
                 <UserCircle className="w-4 h-4" /> Profile
               </Link>
-              <div className="text-xs font-semibold text-[#16a34a] dark:text-green-400/60 px-2 py-1 bg-[#16a34a]/10 dark:bg-green-500/10 rounded-full border border-[#16a34a]/20 dark:border-green-500/20">
-                {user.name || user.email?.split('@')[0]} · {user.role?.replace('_', ' ')}
-              </div>
+
+              {/* User pill */}
+              <span
+                className="text-xs font-bold px-3 py-1.5 rounded-full"
+                style={{ background: roleColor.bg, color: roleColor.text }}
+              >
+                {user.name?.split(' ')[0] || user.email?.split('@')[0]} · {(user.role || '').replace('_', ' ')}
+              </span>
+
               <button
                 onClick={handleLogout}
-                className="flex items-center gap-1.5 text-sm font-medium text-red-600 hover:text-red-700 dark:text-red-400/70 dark:hover:text-red-400 transition-colors"
+                className="flex items-center gap-1.5 text-sm font-medium transition-colors"
+                style={{ color: '#EF4444' }}
               >
                 <LogOut className="w-4 h-4" /> Logout
               </button>
             </>
           ) : (
             <>
-              <Link to="/login" className="text-sm font-medium text-[#4b5563] hover:text-[#16a34a] dark:text-green-300/70 dark:hover:text-green-300 transition-colors">Login</Link>
+              <Link to="/login" className={navLinkCls} style={navLinkStyle}>Login</Link>
               <Link
                 to="/signup"
-                className="text-sm px-4 py-2 bg-[#16a34a] dark:bg-green-600 hover:bg-[#15803d] dark:hover:bg-green-500 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 font-medium"
+                className="text-sm px-5 py-2 text-white rounded-xl font-semibold transition-all duration-300 hover:-translate-y-0.5"
+                style={{ background: 'linear-gradient(135deg,#22C55E,#16A34A)', boxShadow: '0 4px 14px rgba(34,197,94,0.35)' }}
               >
                 Join Now
               </Link>
@@ -84,43 +101,50 @@ export default function Navbar({ theme, onToggleTheme }) {
         </div>
 
         {/* Mobile hamburger */}
-        <button className="md:hidden text-[#111827] dark:text-green-400" onClick={() => setOpen(!open)}>
-          {open ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+        <button
+          className="md:hidden p-2 rounded-lg transition-colors"
+          style={{ color: '#475569' }}
+          onClick={() => setOpen(!open)}
+          aria-label="Toggle menu"
+        >
+          {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
       </div>
 
       {/* Mobile menu */}
-      {
-        open && (
-          <div className="md:hidden px-4 pb-4 pt-1 flex flex-col gap-3 border-t border-[#e5e7eb] dark:border-green-900/30 bg-[#FFFFFF] dark:bg-transparent">
-            <div className="flex items-center justify-between">
-              <div className="flex gap-4">
-                <Link to="/community" className="text-sm font-medium text-[#4b5563] dark:text-green-300/70" onClick={() => setOpen(false)}>Community</Link>
-                <Link to="/feed" className="text-sm font-medium text-[#4b5563] dark:text-green-300/70" onClick={() => setOpen(false)}>Live Feed</Link>
-              </div>
-              <button
-                onClick={onToggleTheme}
-                className="flex items-center justify-center w-8 h-8 rounded-full border border-[#e5e7eb] dark:border-green-500/30 bg-[#f9fafb] dark:bg-black/20 text-[#2563eb] hover:bg-[#e5e7eb] dark:text-green-300 dark:hover:bg-green-500/20 transition-colors"
-                aria-label="Toggle theme"
+      {open && (
+        <div
+          className="md:hidden px-5 pb-5 pt-2 flex flex-col gap-4"
+          style={{ borderTop: '1px solid #F1F5F9', background: 'rgba(255,255,255,0.98)' }}
+        >
+          <Link to="/community" className="text-sm font-medium" style={{ color: '#475569' }} onClick={() => setOpen(false)}>🤝 Community</Link>
+          <Link to="/feed" className="text-sm font-medium" style={{ color: '#475569' }} onClick={() => setOpen(false)}>📡 Live Feed</Link>
+
+          {user ? (
+            <>
+              <Link to={dashboardLink()} className="text-sm font-medium" style={{ color: '#475569' }} onClick={() => setOpen(false)}>📊 Dashboard</Link>
+              <Link to="/profile" className="text-sm font-medium" style={{ color: '#475569' }} onClick={() => setOpen(false)}>👤 My Profile</Link>
+              <div className="h-px" style={{ background: '#F1F5F9' }} />
+              <span className="text-xs font-bold px-3 py-1.5 rounded-full w-fit" style={{ background: roleColor.bg, color: roleColor.text }}>
+                {user.name?.split(' ')[0] || user.email?.split('@')[0]} · {(user.role || '').replace('_', ' ')}
+              </span>
+              <button onClick={handleLogout} className="text-sm font-semibold text-left" style={{ color: '#EF4444' }}>🚪 Logout</button>
+            </>
+          ) : (
+            <>
+              <Link to="/login" className="text-sm font-medium" style={{ color: '#475569' }} onClick={() => setOpen(false)}>Login</Link>
+              <Link
+                to="/signup"
+                className="text-sm font-semibold text-white rounded-xl px-4 py-2.5 text-center"
+                style={{ background: 'linear-gradient(135deg,#22C55E,#16A34A)' }}
+                onClick={() => setOpen(false)}
               >
-                {theme === 'light' ? <Moon className="w-4 h-4 text-[#111827]" /> : <Sun className="w-4 h-4" />}
-              </button>
-            </div>
-            {user ? (
-              <>
-                <Link to={dashboardLink()} className="text-sm font-medium text-[#4b5563] dark:text-green-300/70" onClick={() => setOpen(false)}>Dashboard</Link>
-                <Link to="/profile" className="text-sm font-medium text-[#4b5563] dark:text-green-300/70" onClick={() => setOpen(false)}>My Profile</Link>
-                <button onClick={handleLogout} className="text-sm font-medium text-red-600 dark:text-red-400/70 text-left">Logout</button>
-              </>
-            ) : (
-              <>
-                <Link to="/login" className="text-sm font-medium text-[#4b5563] dark:text-green-300/70" onClick={() => setOpen(false)}>Login</Link>
-                <Link to="/signup" className="text-sm font-medium text-white bg-[#16a34a] dark:bg-green-600 rounded-lg px-4 py-2 text-center shadow-md" onClick={() => setOpen(false)}>Join Now</Link>
-              </>
-            )}
-          </div>
-        )
-      }
-    </nav >
+                Join Now 🌱
+              </Link>
+            </>
+          )}
+        </div>
+      )}
+    </nav>
   );
 }

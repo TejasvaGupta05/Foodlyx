@@ -1,293 +1,276 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase';
-import {
-  collection, query, where, onSnapshot,
-  doc, updateDoc, limit
-} from 'firebase/firestore';
-import { Filter, Package, CheckCircle, AlertCircle, Truck, MessageSquare, Plus } from 'lucide-react';
+import { collection, query, where, onSnapshot, doc, updateDoc, limit } from 'firebase/firestore';
+import { Package, CheckCircle, Truck, MessageSquare, Plus, Heart, Filter, X, Zap } from 'lucide-react';
 import FoodCard from '../components/FoodCard';
 import FeedbackForm from '../components/FeedbackForm';
 import FeedbackDisplay from '../components/FeedbackDisplay';
 import ProtectedRoute from '../components/ProtectedRoute';
 import { useNavigate } from 'react-router-dom';
 
+const TABS = [
+  { key: 'available', label: '🍱 Available',  desc: 'Pending food requests near you' },
+  { key: 'accepted',  label: '✅ Accepted',   desc: 'Requests your NGO has accepted'  },
+  { key: 'feedback',  label: '💬 Feedback',   desc: 'Submitted feedback history'      },
+];
+
+const CAT_FILTERS = [
+  { value: '', label: 'All Categories' },
+  { value: 'human_edible',       label: '🧑 Human Edible' },
+  { value: 'animal_edible',      label: '🐾 Animal Edible' },
+  { value: 'fertilizer_compost', label: '🌿 Compost' },
+  { value: 'fresh_food',         label: '🥬 Fresh Food' },
+  { value: 'perishable_food',    label: '⏰ Perishable' },
+];
+
+const URG_FILTERS = [
+  { value: '',       label: 'Any Urgency' },
+  { value: 'high',   label: '🔴 High'   },
+  { value: 'medium', label: '🟡 Medium' },
+  { value: 'low',    label: '🟢 Low'    },
+];
+
 export default function NGODashboard() {
-  const { user } = useAuth();
-  const navigate = useNavigate();
-  const [requests, setRequests] = useState([]);
+  const { user }   = useAuth();
+  const navigate   = useNavigate();
+  const [requests, setRequests]     = useState([]);
   const [myRequests, setMyRequests] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({ category: '', urgency: '' });
-  const [tab, setTab] = useState('available');
-  const [toast, setToast] = useState('');
-  const [feedbacks, setFeedbacks] = useState([]);
+  const [feedbacks, setFeedbacks]   = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [filters, setFilters]       = useState({ category: '', urgency: '' });
+  const [tab, setTab]               = useState('available');
+  const [toast, setToast]           = useState({ msg: '', type: 'success' });
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
 
-  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
+  const showToast = (msg, type = 'success') => { setToast({ msg, type }); setTimeout(() => setToast({ msg: '', type: 'success' }), 3000); };
 
-  // Real-time listener for available (pending) food requests
+  // Available requests
   useEffect(() => {
     setLoading(true);
-    // Only filter on single field to avoid composite index requirement
-    const q = query(
-      collection(db, 'foodRequests'),
-      where('status', '==', 'pending'),
-      limit(100)
-    );
-
-    const unsub = onSnapshot(q, (snap) => {
+    const q = query(collection(db, 'foodRequests'), where('status', '==', 'pending'), limit(100));
+    return onSnapshot(q, (snap) => {
       let data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-      // Sort client-side (avoids needing a composite index)
-      data.sort((a, b) => {
-        const at = a.createdAt?.toMillis?.() ?? (a.createdAt?.seconds ?? 0) * 1000;
-        const bt = b.createdAt?.toMillis?.() ?? (b.createdAt?.seconds ?? 0) * 1000;
-        return bt - at;
-      });
-
-      // Client-side filters
+      data.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0));
       if (filters.category) data = data.filter(r => r.foodUsabilityCategory === filters.category || r.foodCategory === filters.category);
       if (filters.urgency) data = data.filter(r => r.urgency === filters.urgency);
-
       setRequests(data);
       setLoading(false);
-    }, (err) => {
-      console.warn('Requests listener error:', err.message);
-      setLoading(false);
-    });
-
-    return () => unsub();
+    }, err => { console.warn(err.message); setLoading(false); });
   }, [filters]);
 
-  // Real-time listener for requests accepted by this NGO
+  // My accepted requests
   useEffect(() => {
     if (!user?.uid) return;
-    const q = query(
-      collection(db, 'foodRequests'),
-      where('acceptedByUid', '==', user.uid)
-    );
-    const unsub = onSnapshot(q, (snap) => {
+    const q = query(collection(db, 'foodRequests'), where('acceptedByUid', '==', user.uid));
+    return onSnapshot(q, (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      data.sort((a, b) => {
-        const at = a.createdAt?.toMillis?.() ?? (a.createdAt?.seconds ?? 0) * 1000;
-        const bt = b.createdAt?.toMillis?.() ?? (b.createdAt?.seconds ?? 0) * 1000;
-        return bt - at;
-      });
+      data.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0));
       setMyRequests(data);
-    }, (err) => console.warn('MyRequests error:', err.message));
-
-    return () => unsub();
+    }, err => console.warn(err.message));
   }, [user?.uid]);
 
-  // Real-time feedback listener
+  // Feedback
   useEffect(() => {
     if (!user?.uid) return;
-    const q = query(
-      collection(db, 'feedbacks'),
-      where('submittedById', '==', user.uid)
-    );
-    const unsub = onSnapshot(q, (snap) => {
+    const q = query(collection(db, 'feedbacks'), where('submittedById', '==', user.uid));
+    return onSnapshot(q, (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      data.sort((a, b) => {
-        const at = a.createdAt?.toMillis?.() ?? (a.createdAt?.seconds ?? 0) * 1000;
-        const bt = b.createdAt?.toMillis?.() ?? (b.createdAt?.seconds ?? 0) * 1000;
-        return bt - at;
-      });
+      data.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0));
       setFeedbacks(data);
-    }, (err) => console.warn('Feedback listener error:', err.message));
-    return () => unsub();
+    }, err => console.warn(err.message));
   }, [user?.uid]);
 
   const handleAccept = async (id) => {
     try {
       await updateDoc(doc(db, 'foodRequests', id), {
-        status: 'accepted',
-        acceptedByUid: user.uid,
-        acceptedByName: user.name || user.email,
-        acceptedByRole: user.role,
+        status: 'accepted', acceptedByUid: user.uid,
+        acceptedByName: user.name || user.email, acceptedByRole: user.role,
         acceptedAt: new Date().toISOString(),
       });
-      showToast('Request accepted! 🎉');
-    } catch (err) {
-      showToast('Failed to accept: ' + err.message);
-    }
+      showToast('🎉 Request accepted! Go deliver with love.');
+    } catch (err) { showToast('Failed: ' + err.message, 'error'); }
   };
 
   const handleDeliver = async (id) => {
     try {
-      await updateDoc(doc(db, 'foodRequests', id), {
-        status: 'delivered',
-        deliveredAt: new Date().toISOString(),
-      });
-      showToast('Marked as delivered! ✅');
-    } catch (err) {
-      showToast('Failed to update: ' + err.message);
-    }
+      await updateDoc(doc(db, 'foodRequests', id), { status: 'delivered', deliveredAt: new Date().toISOString() });
+      showToast('✅ Marked as delivered! Great work!');
+    } catch (err) { showToast('Failed: ' + err.message, 'error'); }
   };
 
-  const handleFeedbackSubmit = () => {
-    showToast('Feedback submitted! 🙏');
-  };
-
-  const handleResolveFeedback = (feedbackId) => {
-    setFeedbacks(feedbacks.map(f => f.id === feedbackId ? { ...f, resolutionStatus: 'resolved' } : f));
-    showToast('Marked as resolved!');
-  };
+  const hasFilters = filters.category || filters.urgency;
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen pt-20 pb-16 px-4">
-        <div className="max-w-5xl mx-auto">
-          {/* Header */}
+      <div className="warm-page min-h-screen pt-20 pb-16">
+        <div className="max-w-6xl mx-auto px-6">
+
+          {/* ── Toast ── */}
+          {toast.msg && (
+            <div className="fixed top-20 right-4 z-50 px-5 py-3 rounded-2xl text-sm font-bold shadow-lg fade-in"
+              style={{ background: toast.type === 'error' ? '#FEF2F2' : '#DCFCE7', color: toast.type === 'error' ? '#DC2626' : '#16A34A', border: `1px solid ${toast.type === 'error' ? '#FECACA' : '#86EFAC'}` }}>
+              {toast.msg}
+            </div>
+          )}
+
+          {/* ── Header ── */}
           <div className="mb-8">
-            <h1 className="text-3xl font-black text-white">NGO Dashboard</h1>
-            <p className="text-green-400/60 mt-1">
+            <span className="warm-badge mb-3 inline-flex" style={{ background: '#DBEAFE', color: '#2563EB' }}>
+              🤝 NGO Portal
+            </span>
+            <h1 className="text-4xl font-black mb-1" style={{ fontFamily: "'Playfair Display', serif", color: '#1C2B22' }}>NGO Dashboard</h1>
+            <p className="text-base" style={{ color: '#64748B' }}>
               {user?.name}
-              {!user?.isVerified && <span className="ml-2 text-yellow-400 text-xs">(Pending verification)</span>}
+              {!user?.isVerified && <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: '#FEF3C7', color: '#D97706' }}>⏳ Pending Verification</span>}
             </p>
           </div>
 
-          {/* Subscription Status */}
+          {/* ── Subscription Banner ── */}
           {user?.uid?.startsWith('demo_') ? (
-            <div className="mb-6 p-4 bg-gray-50 dark:bg-green-900/20 border border-gray-200 dark:border-green-500/30 rounded-2xl">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Invigilator Demo Mode</h3>
-                  <p className="text-gray-600 dark:text-green-300/70 text-sm mt-1">
-                    Unlimited access granted for grading. Subscription requirements and limits are bypassed.
-                  </p>
-                </div>
+            <div className="warm-card p-5 mb-6 flex items-center gap-3" style={{ border: '1px solid #DBEAFE' }}>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#DBEAFE' }}>
+                <Zap className="w-5 h-5" style={{ color: '#2563EB' }} />
+              </div>
+              <div>
+                <p className="font-bold text-sm" style={{ color: '#1C2B22' }}>Demo Mode Active</p>
+                <p className="text-xs" style={{ color: '#64748B' }}>Full access granted for evaluation. Subscription limits bypassed.</p>
               </div>
             </div>
           ) : user?.subscription && (
-            <div className="mb-6 p-4 bg-gray-50 dark:bg-green-900/20 border border-gray-200 dark:border-green-500/30 rounded-2xl">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="warm-card p-5 mb-6 flex items-center justify-between gap-4 flex-wrap" style={{ border: '1px solid #DCFCE7' }}>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: '#DCFCE7' }}>
+                  <CheckCircle className="w-5 h-5" style={{ color: '#16A34A' }} />
+                </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Subscription Status</h3>
-                  <p className="text-gray-600 dark:text-green-300/70 text-sm mt-1">
-                    Plan: <span className="font-medium text-gray-900 dark:text-white">{user.subscription.plan}</span> | Status: <span className="capitalize">{user.subscription.status}</span>
+                  <p className="font-bold text-sm" style={{ color: '#1C2B22' }}>
+                    {user.subscription.plan} · <span className="capitalize">{user.subscription.status}</span>
                   </p>
-                  <p className="text-gray-600 dark:text-green-300/70 text-sm">
-                    Used: {user.subscription.usedRequests} / {user.subscription.usageLimit} limit
+                  <p className="text-xs" style={{ color: '#64748B' }}>
+                    Used {user.subscription.usedRequests}/{user.subscription.usageLimit} requests this period
                   </p>
                 </div>
-                <button
-                  onClick={() => navigate('/subscribe')}
-                  className="px-4 py-2 bg-[#16a34a] hover:bg-[#15803d] dark:bg-green-600 dark:hover:bg-green-500 text-white rounded-lg transition text-sm font-medium whitespace-nowrap shadow-sm"
-                >
-                  Manage Subscription
-                </button>
               </div>
+              <button onClick={() => navigate('/subscribe')}
+                className="px-4 py-2 rounded-xl text-sm font-bold transition-all hover:-translate-y-0.5"
+                style={{ background: '#DCFCE7', color: '#16A34A' }}>
+                Manage Plan
+              </button>
             </div>
           )}
 
-          {/* Toast */}
-          {toast && (
-            <div className="fixed top-20 right-4 z-50 px-4 py-3 bg-green-600 text-white text-sm rounded-lg shadow-lg fade-in">
-              {toast}
-            </div>
-          )}
-
-          {/* Tabs */}
-          <div className="flex gap-2 mb-6 border-b border-green-900/30 pb-4">
-            {['available', 'accepted', 'feedback'].map(t => (
-              <button key={t} onClick={() => setTab(t)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all capitalize flex items-center gap-2 ${tab === t ? 'bg-green-600 text-white' : 'glass text-green-400/60 hover:text-green-400'}`}>
-                {t === 'feedback' && <MessageSquare className="w-4 h-4" />}
-                {t}
+          {/* ── Tabs ── */}
+          <div className="flex gap-2 mb-6 flex-wrap">
+            {TABS.map(({ key, label }) => (
+              <button key={key} onClick={() => setTab(key)}
+                className="px-5 py-2.5 rounded-2xl text-sm font-bold transition-all"
+                style={{
+                  background: tab === key ? '#22C55E' : '#FFFFFF',
+                  color: tab === key ? '#FFFFFF' : '#64748B',
+                  border: tab === key ? '2px solid #22C55E' : '2px solid #F1F5F9',
+                  boxShadow: tab === key ? '0 4px 12px rgba(34,197,94,0.25)' : 'none',
+                }}>
+                {label}
               </button>
             ))}
           </div>
 
+          {/* ── Available Tab ── */}
           {tab === 'available' && (
             <>
               {/* Filters */}
-              <div className="flex gap-3 mb-6 flex-wrap">
-                <select value={filters.category} onChange={e => setFilters({ ...filters, category: e.target.value })}
-                  className="px-4 py-2 bg-green-900/10 border border-green-900/40 rounded-lg text-green-300 text-sm focus:outline-none focus:border-green-500/50">
-                  <option value="">All Categories</option>
-                  <option value="human_edible">Human Edible</option>
-                  <option value="animal_edible">Animal Edible</option>
-                  <option value="fertilizer_compost">Compost / Fertilizer</option>
-                  <option value="fresh_food">Fresh Food</option>
-                  <option value="perishable_food">Perishable</option>
-                </select>
-                <select value={filters.urgency} onChange={e => setFilters({ ...filters, urgency: e.target.value })}
-                  className="px-4 py-2 bg-green-900/10 border border-green-900/40 rounded-lg text-green-300 text-sm focus:outline-none focus:border-green-500/50">
-                  <option value="">All Urgencies</option>
-                  <option value="high">High</option>
-                  <option value="medium">Medium</option>
-                  <option value="low">Low</option>
-                </select>
-                <button onClick={() => setFilters({ category: '', urgency: '' })}
-                  className="px-4 py-2 glass text-green-400/60 hover:text-green-400 rounded-lg text-sm transition-colors">
-                  Clear
-                </button>
+              <div className="flex flex-wrap gap-2 mb-5 items-center">
+                <span className="text-sm font-medium flex items-center gap-1" style={{ color: '#64748B' }}><Filter className="w-4 h-4" /> Filter:</span>
+                {CAT_FILTERS.map(({ value, label }) => (
+                  <button key={value} onClick={() => setFilters({ ...filters, category: value })}
+                    className="px-3 py-1.5 rounded-full text-xs font-medium transition-all"
+                    style={{ background: filters.category === value ? '#22C55E' : '#FFFFFF', color: filters.category === value ? '#FFFFFF' : '#334155', border: `1.5px solid ${filters.category === value ? '#22C55E' : '#E2E8F0'}` }}>
+                    {label}
+                  </button>
+                ))}
+                <div className="w-px h-5" style={{ background: '#E2E8F0' }} />
+                {URG_FILTERS.slice(1).map(({ value, label }) => (
+                  <button key={value} onClick={() => setFilters({ ...filters, urgency: filters.urgency === value ? '' : value })}
+                    className="px-3 py-1.5 rounded-full text-xs font-medium transition-all"
+                    style={{ background: filters.urgency === value ? '#F59E0B' : '#FFFFFF', color: filters.urgency === value ? '#FFFFFF' : '#334155', border: `1.5px solid ${filters.urgency === value ? '#F59E0B' : '#E2E8F0'}` }}>
+                    {label}
+                  </button>
+                ))}
+                {hasFilters && (
+                  <button onClick={() => setFilters({ category: '', urgency: '' })}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium"
+                    style={{ background: '#FEF2F2', color: '#EF4444', border: '1.5px solid #FECACA' }}>
+                    <X className="w-3 h-3" /> Clear
+                  </button>
+                )}
               </div>
 
               {loading ? (
-                <div className="text-center text-green-400/40 py-20 animate-pulse">Loading requests...</div>
+                <div className="flex flex-col items-center py-20">
+                  <div className="w-10 h-10 rounded-full border-4 border-green-200 border-t-green-500 animate-spin mb-3" />
+                  <p className="text-sm" style={{ color: '#64748B' }}>Loading food requests...</p>
+                </div>
               ) : requests.length === 0 ? (
-                <div className="text-center text-green-400/40 py-20">
-                  No available food requests. Check back soon! 🌱
+                <div className="warm-card p-16 text-center">
+                  <div className="text-5xl mb-4">🌱</div>
+                  <h3 className="font-bold text-lg mb-2" style={{ color: '#1C2B22' }}>No requests right now</h3>
+                  <p className="text-sm" style={{ color: '#64748B' }}>
+                    {hasFilters ? 'Try removing filters to find more requests.' : 'Check back soon — donors post throughout the day!'}
+                  </p>
                 </div>
               ) : (
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {requests.map(r => (
-                    <FoodCard key={r.id} request={r} onAccept={handleAccept} userRole={user?.role} />
-                  ))}
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {requests.map(r => <FoodCard key={r.id} request={r} onAccept={handleAccept} userRole={user?.role} />)}
                 </div>
               )}
             </>
           )}
 
+          {/* ── Accepted Tab ── */}
           {tab === 'accepted' && (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {myRequests.length === 0 ? (
-                <div className="col-span-3 text-center text-green-400/40 py-20">No accepted requests.</div>
-              ) : myRequests.map(r => (
-                <FoodCard key={r.id} request={r} onDeliver={handleDeliver} userRole={user?.role} />
-              ))}
-            </div>
+            myRequests.length === 0 ? (
+              <div className="warm-card p-16 text-center">
+                <Truck className="w-12 h-12 mx-auto mb-4" style={{ color: '#CBD5E1' }} />
+                <h3 className="font-bold text-lg mb-2" style={{ color: '#1C2B22' }}>No accepted requests yet</h3>
+                <p className="text-sm" style={{ color: '#64748B' }}>Go to Available tab to accept food donation requests.</p>
+              </div>
+            ) : (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                {myRequests.map(r => <FoodCard key={r.id} request={r} onDeliver={handleDeliver} userRole={user?.role} />)}
+              </div>
+            )
           )}
 
+          {/* ── Feedback Tab ── */}
           {tab === 'feedback' && (
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h2 className="text-xl font-semibold text-white">Feedback & Complaints</h2>
-                <button
-                  onClick={() => setShowFeedbackModal(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg transition-colors text-sm font-medium"
-                >
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-black" style={{ color: '#1C2B22' }}>Feedback & Complaints</h2>
+                <button onClick={() => setShowFeedbackModal(true)}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-2xl text-white font-bold transition-all hover:-translate-y-0.5"
+                  style={{ background: 'linear-gradient(135deg,#22C55E,#16A34A)', boxShadow: '0 4px 12px rgba(34,197,94,0.3)' }}>
                   <Plus className="w-4 h-4" /> Submit Feedback
                 </button>
               </div>
-
               {feedbacks.length === 0 ? (
-                <div className="text-center text-green-400/40 py-20">No feedback submitted yet.</div>
+                <div className="warm-card p-12 text-center">
+                  <MessageSquare className="w-10 h-10 mx-auto mb-3" style={{ color: '#CBD5E1' }} />
+                  <p className="text-sm font-medium" style={{ color: '#64748B' }}>No feedback submitted yet.</p>
+                </div>
               ) : (
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {feedbacks.map(feedback => (
-                    <FeedbackDisplay
-                      key={feedback.id}
-                      feedback={feedback}
-                      onResolve={handleResolveFeedback}
-                    />
-                  ))}
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {feedbacks.map(fb => <FeedbackDisplay key={fb.id} feedback={fb} />)}
                 </div>
               )}
             </div>
           )}
         </div>
 
+        {/* Feedback Modal */}
         {showFeedbackModal && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <FeedbackForm
-              accentColor="green"
-              onSubmit={handleFeedbackSubmit}
-              onClose={() => setShowFeedbackModal(false)}
-            />
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <FeedbackForm accentColor="green" onSubmit={() => { showToast('🙏 Feedback submitted!'); setShowFeedbackModal(false); }} onClose={() => setShowFeedbackModal(false)} />
           </div>
         )}
       </div>
