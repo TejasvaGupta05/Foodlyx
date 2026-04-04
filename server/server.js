@@ -8,6 +8,7 @@ const mongoose = require('mongoose');
 const authRoutes = require('./routes/auth');
 const requestRoutes = require('./routes/requests');
 const statsRoutes = require('./routes/stats');
+const feedbackRoutes = require('./routes/feedback');
 
 const app = express();
 const server = http.createServer(app);
@@ -26,6 +27,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/requests', requestRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/feedback', feedbackRoutes);
 
 // Health check
 app.get('/', (req, res) => res.json({ message: 'FOODLYX API running' }));
