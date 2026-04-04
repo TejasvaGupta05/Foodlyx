@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import api from '../api/axios';
-import { Truck, Sprout, Recycle, Trash2, MessageSquare } from 'lucide-react';
+import { db } from '../firebase';
+import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { Truck, Sprout, Recycle, Trash2, MessageSquare, Plus } from 'lucide-react';
 import FoodCard from '../components/FoodCard';
 import FeedbackForm from '../components/FeedbackForm';
 import FeedbackDisplay from '../components/FeedbackDisplay';
@@ -18,7 +19,6 @@ export default function CompostUnitDashboard() {
   const [toast, setToast] = useState('');
   const [feedbacks, setFeedbacks] = useState([]);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState(null);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
 
@@ -46,16 +46,26 @@ export default function CompostUnitDashboard() {
     } catch { } finally { setLoading(false); }
   };
 
-  const fetchFeedbacks = async () => {
-    try {
-      const { data } = await api.get(`/feedback/receiver/${user?.uid}`);
-      setFeedbacks(data);
-    } catch (error) {
-      console.error('Failed to fetch feedbacks:', error);
-    }
+  const fetchFeedbacks = () => {
+    if (!user?.uid) return;
+    const q = query(
+      collection(db, 'feedbacks'),
+      where('submittedById', '==', user.uid),
+      orderBy('createdAt', 'desc')
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      setFeedbacks(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, (err) => console.warn('Feedback listener error:', err.message));
+    return unsub;
   };
 
-  useEffect(() => { fetchRequests(); fetchFeedbacks(); }, [filters]);
+  useEffect(() => { fetchRequests(); }, [filters]);
+
+  useEffect(() => {
+    const unsub = fetchFeedbacks();
+    return () => unsub?.();
+  }, [user?.uid]);
+
 
   const handleAccept = async (id) => {
     try {
@@ -80,14 +90,13 @@ export default function CompostUnitDashboard() {
     setShowFeedbackModal(true);
   };
 
-  const handleFeedbackSubmit = () => {
-    fetchFeedbacks();
-    showToast('Feedback submitted successfully!');
+  const handleFeedbackSubmit = (newFeedback) => {
+    showToast('Feedback submitted!');
   };
 
   const handleResolveFeedback = (feedbackId) => {
-    setFeedbacks(feedbacks.map(f => f._id === feedbackId ? { ...f, resolutionStatus: 'resolved' } : f));
-    showToast('Feedback resolved!');
+    setFeedbacks(feedbacks.map(f => f.id === feedbackId ? { ...f, resolutionStatus: 'resolved' } : f));
+    showToast('Marked as resolved!');
   };
 
   return (
@@ -204,17 +213,10 @@ export default function CompostUnitDashboard() {
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-semibold text-white">Feedback & Complaints</h2>
               <button
-                onClick={() => {
-                  const deliveredRequests = myRequests.filter(r => r.status === 'delivered');
-                  if (deliveredRequests.length === 0) {
-                    showToast('No delivered requests to feedback on');
-                    return;
-                  }
-                  openFeedbackModal(deliveredRequests[0]);
-                }}
-                className="px-4 py-2 bg-stone-700 hover:bg-stone-600 text-lime-400 rounded-lg transition-colors border border-lime-500/30"
+                onClick={() => setShowFeedbackModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-stone-700 hover:bg-stone-600 text-lime-400 rounded-lg transition-colors border border-lime-500/30 text-sm font-medium"
               >
-                Submit Feedback
+                <Plus className="w-4 h-4" /> Submit Feedback
               </button>
             </div>
 
@@ -224,7 +226,7 @@ export default function CompostUnitDashboard() {
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {feedbacks.map(feedback => (
                   <FeedbackDisplay
-                    key={feedback._id}
+                    key={feedback.id}
                     feedback={feedback}
                     onResolve={handleResolveFeedback}
                   />
@@ -235,13 +237,10 @@ export default function CompostUnitDashboard() {
         )}
       </div>
 
-      {/* Feedback Modal */}
-      {showFeedbackModal && selectedRequest && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      {showFeedbackModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <FeedbackForm
-            foodRequestId={selectedRequest._id}
-            deliveryId={selectedRequest.deliveryId}
-            facilityName={selectedRequest.donorDetails?.businessName || selectedRequest.donorId?.name || ''}
+            accentColor="lime"
             onSubmit={handleFeedbackSubmit}
             onClose={() => setShowFeedbackModal(false)}
           />

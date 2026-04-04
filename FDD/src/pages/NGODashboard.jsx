@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useSocket } from '../context/SocketContext';
-import api from '../api/axios';
-import { Filter, MapPin, Package, CheckCircle, AlertCircle, Truck, MessageSquare } from 'lucide-react';
+import { db } from '../firebase';
+import {
+  collection, query, where, onSnapshot,
+  doc, updateDoc, limit
+} from 'firebase/firestore';
+import { Filter, Package, CheckCircle, AlertCircle, Truck, MessageSquare, Plus } from 'lucide-react';
 import FoodCard from '../components/FoodCard';
 import FeedbackForm from '../components/FeedbackForm';
 import FeedbackDisplay from '../components/FeedbackDisplay';
 
 export default function NGODashboard() {
   const { user } = useAuth();
-  const { socket } = useSocket();
   const [requests, setRequests] = useState([]);
   const [myRequests, setMyRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -18,81 +20,116 @@ export default function NGODashboard() {
   const [toast, setToast] = useState('');
   const [feedbacks, setFeedbacks] = useState([]);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState(null);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
 
-  const fetchRequests = async () => {
-    try {
-      const params = new URLSearchParams();
-      if (filters.category) params.set('category', filters.category);
-      const { data } = await api.get(`/requests?${params}`);
-      
-      // Client-side filtering for urgency
-      let filteredData = data;
-      if (filters.urgency) {
-        filteredData = data.filter(req => req.urgency === filters.urgency);
-      }
-      
-      setRequests(filteredData);
-
-      const myData = await api.get('/requests/all');
-      setMyRequests(myData.data.filter(r => r.acceptedBy?.uid === user?.uid || r.acceptedBy === user?.uid));
-    } catch { } finally { setLoading(false); }
-  };
-
-  const fetchFeedbacks = async () => {
-    try {
-      const { data } = await api.get(`/feedback/receiver/${user?.uid}`);
-      setFeedbacks(data);
-    } catch (error) {
-      console.error('Failed to fetch feedbacks:', error);
-    }
-  };
-
-  useEffect(() => { fetchRequests(); fetchFeedbacks(); }, [filters]);
-
+  // Real-time listener for available (pending) food requests
   useEffect(() => {
-    if (!socket) return;
-    socket.on('new_request', (req) => {
-      setRequests((prev) => [req, ...prev]);
-      showToast(`New request: ${req.foodType}`);
+    setLoading(true);
+    // Only filter on single field to avoid composite index requirement
+    const q = query(
+      collection(db, 'foodRequests'),
+      where('status', '==', 'pending'),
+      limit(100)
+    );
+
+    const unsub = onSnapshot(q, (snap) => {
+      let data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      // Sort client-side (avoids needing a composite index)
+      data.sort((a, b) => {
+        const at = a.createdAt?.toMillis?.() ?? (a.createdAt?.seconds ?? 0) * 1000;
+        const bt = b.createdAt?.toMillis?.() ?? (b.createdAt?.seconds ?? 0) * 1000;
+        return bt - at;
+      });
+
+      // Client-side filters
+      if (filters.category) data = data.filter(r => r.foodUsabilityCategory === filters.category || r.foodCategory === filters.category);
+      if (filters.urgency) data = data.filter(r => r.urgency === filters.urgency);
+
+      setRequests(data);
+      setLoading(false);
+    }, (err) => {
+      console.warn('Requests listener error:', err.message);
+      setLoading(false);
     });
-    socket.on('request_updated', () => fetchRequests());
-    return () => { socket.off('new_request'); socket.off('request_updated'); };
-  }, [socket]);
+
+    return () => unsub();
+  }, [filters]);
+
+  // Real-time listener for requests accepted by this NGO
+  useEffect(() => {
+    if (!user?.uid) return;
+    const q = query(
+      collection(db, 'foodRequests'),
+      where('acceptedByUid', '==', user.uid)
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      data.sort((a, b) => {
+        const at = a.createdAt?.toMillis?.() ?? (a.createdAt?.seconds ?? 0) * 1000;
+        const bt = b.createdAt?.toMillis?.() ?? (b.createdAt?.seconds ?? 0) * 1000;
+        return bt - at;
+      });
+      setMyRequests(data);
+    }, (err) => console.warn('MyRequests error:', err.message));
+
+    return () => unsub();
+  }, [user?.uid]);
+
+  // Real-time feedback listener
+  useEffect(() => {
+    if (!user?.uid) return;
+    const q = query(
+      collection(db, 'feedbacks'),
+      where('submittedById', '==', user.uid)
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      data.sort((a, b) => {
+        const at = a.createdAt?.toMillis?.() ?? (a.createdAt?.seconds ?? 0) * 1000;
+        const bt = b.createdAt?.toMillis?.() ?? (b.createdAt?.seconds ?? 0) * 1000;
+        return bt - at;
+      });
+      setFeedbacks(data);
+    }, (err) => console.warn('Feedback listener error:', err.message));
+    return () => unsub();
+  }, [user?.uid]);
 
   const handleAccept = async (id) => {
     try {
-      await api.post(`/requests/${id}/accept`);
-      showToast('Request accepted!');
-      fetchRequests();
+      await updateDoc(doc(db, 'foodRequests', id), {
+        status: 'accepted',
+        acceptedByUid: user.uid,
+        acceptedByName: user.name || user.email,
+        acceptedByRole: user.role,
+        acceptedAt: new Date().toISOString(),
+      });
+      showToast('Request accepted! 🎉');
     } catch (err) {
-      showToast(err.response?.data?.message || 'Failed to accept');
+      showToast('Failed to accept: ' + err.message);
     }
   };
 
   const handleDeliver = async (id) => {
     try {
-      await api.patch(`/requests/${id}/deliver`);
-      showToast('Marked as delivered!');
-      fetchRequests();
-    } catch { }
-  };
-
-  const openFeedbackModal = (request) => {
-    setSelectedRequest(request);
-    setShowFeedbackModal(true);
+      await updateDoc(doc(db, 'foodRequests', id), {
+        status: 'delivered',
+        deliveredAt: new Date().toISOString(),
+      });
+      showToast('Marked as delivered! ✅');
+    } catch (err) {
+      showToast('Failed to update: ' + err.message);
+    }
   };
 
   const handleFeedbackSubmit = () => {
-    fetchFeedbacks();
-    showToast('Feedback submitted successfully!');
+    showToast('Feedback submitted! 🙏');
   };
 
   const handleResolveFeedback = (feedbackId) => {
-    setFeedbacks(feedbacks.map(f => f._id === feedbackId ? { ...f, resolutionStatus: 'resolved' } : f));
-    showToast('Feedback resolved!');
+    setFeedbacks(feedbacks.map(f => f.id === feedbackId ? { ...f, resolutionStatus: 'resolved' } : f));
+    showToast('Marked as resolved!');
   };
 
   return (
@@ -132,9 +169,11 @@ export default function NGODashboard() {
               <select value={filters.category} onChange={e => setFilters({...filters, category: e.target.value})}
                 className="px-4 py-2 bg-green-900/10 border border-green-900/40 rounded-lg text-green-300 text-sm focus:outline-none focus:border-green-500/50">
                 <option value="">All Categories</option>
-                <option value="edible">Edible</option>
-                <option value="semi_edible">Semi-Edible</option>
-                <option value="non_edible">Non-Edible</option>
+                <option value="human_edible">Human Edible</option>
+                <option value="animal_edible">Animal Edible</option>
+                <option value="fertilizer_compost">Compost / Fertilizer</option>
+                <option value="fresh_food">Fresh Food</option>
+                <option value="perishable_food">Perishable</option>
               </select>
               <select value={filters.urgency} onChange={e => setFilters({...filters, urgency: e.target.value})}
                 className="px-4 py-2 bg-green-900/10 border border-green-900/40 rounded-lg text-green-300 text-sm focus:outline-none focus:border-green-500/50">
@@ -150,13 +189,15 @@ export default function NGODashboard() {
             </div>
 
             {loading ? (
-              <div className="text-center text-green-400/40 py-20">Loading requests...</div>
+              <div className="text-center text-green-400/40 py-20 animate-pulse">Loading requests...</div>
             ) : requests.length === 0 ? (
-              <div className="text-center text-green-400/40 py-20">No available requests matching filters.</div>
+              <div className="text-center text-green-400/40 py-20">
+                No available food requests. Check back soon! 🌱
+              </div>
             ) : (
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {requests.map(r => (
-                  <FoodCard key={r._id} request={r} onAccept={handleAccept} userRole={user?.role} />
+                  <FoodCard key={r.id} request={r} onAccept={handleAccept} userRole={user?.role} />
                 ))}
               </div>
             )}
@@ -168,7 +209,7 @@ export default function NGODashboard() {
             {myRequests.length === 0 ? (
               <div className="col-span-3 text-center text-green-400/40 py-20">No accepted requests.</div>
             ) : myRequests.map(r => (
-              <FoodCard key={r._id} request={r} onDeliver={handleDeliver} userRole={user?.role} />
+              <FoodCard key={r.id} request={r} onDeliver={handleDeliver} userRole={user?.role} />
             ))}
           </div>
         )}
@@ -178,19 +219,10 @@ export default function NGODashboard() {
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-semibold text-white">Feedback & Complaints</h2>
               <button
-                onClick={() => {
-                  const deliveredRequests = myRequests.filter(r => r.status === 'delivered');
-                  if (deliveredRequests.length === 0) {
-                    showToast('No delivered requests to feedback on');
-                    return;
-                  }
-                  // For simplicity, open modal for the first delivered request
-                  // In a real app, you might want to select which one
-                  openFeedbackModal(deliveredRequests[0]);
-                }}
-                className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg transition-colors"
+                onClick={() => setShowFeedbackModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg transition-colors text-sm font-medium"
               >
-                Submit Feedback
+                <Plus className="w-4 h-4" /> Submit Feedback
               </button>
             </div>
 
@@ -200,7 +232,7 @@ export default function NGODashboard() {
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {feedbacks.map(feedback => (
                   <FeedbackDisplay
-                    key={feedback._id}
+                    key={feedback.id}
                     feedback={feedback}
                     onResolve={handleResolveFeedback}
                   />
@@ -211,13 +243,10 @@ export default function NGODashboard() {
         )}
       </div>
 
-      {/* Feedback Modal */}
-      {showFeedbackModal && selectedRequest && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      {showFeedbackModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <FeedbackForm
-            foodRequestId={selectedRequest._id}
-            deliveryId={selectedRequest.deliveryId}
-            facilityName={selectedRequest.donorDetails?.businessName || selectedRequest.donorId?.name || ''}
+            accentColor="green"
             onSubmit={handleFeedbackSubmit}
             onClose={() => setShowFeedbackModal(false)}
           />

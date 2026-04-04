@@ -1,6 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import api from '../api/axios';
+import { db } from '../firebase';
+import {
+  collection, query, where, onSnapshot, addDoc,
+  serverTimestamp
+} from 'firebase/firestore';
 import { Plus, Package, Clock, MapPin, Zap, TrendingUp, CheckCircle, AlertCircle, Upload, Image as ImageIcon, MessageSquare } from 'lucide-react';
 import StatusBadge from '../components/StatusBadge';
 import FeedbackDisplay from '../components/FeedbackDisplay';
@@ -86,18 +90,51 @@ export default function DonorDashboard() {
     }
   };
 
-  useEffect(() => { 
-    if (user && !authLoading) {
-      fetchRequests(); 
-      fetchFeedbacks(); 
-    }
-  }, [user, authLoading]);
+  // Real-time listener for this donor's food requests
+  useEffect(() => {
+    if (!user?.uid) return;
+    const q = query(
+      collection(db, 'foodRequests'),
+      where('donorUid', '==', user.uid)
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      // Sort newest first client-side — avoids composite Firestore index
+      data.sort((a, b) => {
+        const at = a.createdAt?.toMillis?.() ?? (a.createdAt?.seconds ?? 0) * 1000;
+        const bt = b.createdAt?.toMillis?.() ?? (b.createdAt?.seconds ?? 0) * 1000;
+        return bt - at;
+      });
+      setRequests(data);
+      setStats({
+        total: data.length,
+        delivered: data.filter(r => r.status === 'delivered').length,
+        pending: data.filter(r => r.status === 'pending').length,
+        impact: user?.impactScore || 0,
+      });
+      setLoading(false);
+    }, () => setLoading(false));
+    return () => unsub();
+  }, [user?.uid]);
 
   useEffect(() => {
-    if (user && requests.length >= 0) { // Run after requests are loaded
-      fetchStats();
-    }
-  }, [user, requests]);
+    if (!user?.uid) return;
+    const q = query(
+      collection(db, 'feedbacks'),
+      where('donorId', '==', user.uid)
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      data.sort((a, b) => {
+        const at = a.createdAt?.toMillis?.() ?? (a.createdAt?.seconds ?? 0) * 1000;
+        const bt = b.createdAt?.toMillis?.() ?? (b.createdAt?.seconds ?? 0) * 1000;
+        return bt - at;
+      });
+      setFeedbacks(data);
+    }, (err) => console.warn('Feedback fetch error:', err.message));
+    return () => unsub();
+  }, [user?.uid]);
+
 
   useEffect(() => {
     if (!form.preparationDate || !form.preparationTime || !form.foodUsabilityCategory) {
@@ -172,7 +209,11 @@ export default function DonorDashboard() {
     e.preventDefault();
     setSubmitting(true); setError(''); setSuccess('');
     try {
-      await api.post('/requests', {
+      await addDoc(collection(db, 'foodRequests'), {
+        donorUid: user.uid,
+        donorName: user.name || user.email,
+        donorEmail: user.email,
+
         donorBusinessName: form.donorBusinessName,
         donorBusinessType: form.donorCategory,
         donorContactPhone: form.donorContactPhone,
@@ -187,23 +228,31 @@ export default function DonorDashboard() {
         preparationTime: form.preparationTime,
         storageCondition: form.storageCondition,
         foodUsabilityCategory: form.foodUsabilityCategory,
-        foodImage: form.foodImage,
+        foodImage: form.foodImage || '',
 
-        shelfLifeHours: parseFloat(form.shelfLifeHours),
-        urgency: form.urgency,
         safeConsumptionUntil: form.safeConsumptionUntil || null,
-
-        location: { lat: parseFloat(form.lat) || 0, lng: parseFloat(form.lng) || 0, address: form.pickupAddress },
+        urgency: form.urgency || 'medium',
         notes: form.notes,
+
+        location: {
+          lat: parseFloat(form.lat) || 0,
+          lng: parseFloat(form.lng) || 0,
+          address: form.pickupAddress,
+        },
+
+        status: 'pending',
+        acceptedByUid: null,
+        acceptedByName: null,
+        createdAt: serverTimestamp(),
       });
-      setSuccess('Food request posted successfully!');
+
+      setSuccess('Food request posted successfully! 🎉');
       setShowForm(false);
       setForm({
         donorCategory: 'mess',
         donorBusinessName: user?.name || '',
         donorContactPhone: '',
         pickupAddress: '',
-
         foodType: 'dal_roti',
         foodName: '',
         quantity: '',
@@ -216,21 +265,19 @@ export default function DonorDashboard() {
         foodImage: '',
         foodImagePreview: '',
         safeConsumptionUntil: '',
-
         lat: user?.location?.lat || '',
         lng: user?.location?.lng || '',
         notes: '',
       });
       setQualityResult({ status: '', recommendation: '' });
-      fetchRequests();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to post request');
+      setError('Failed to post request: ' + err.message);
     } finally { setSubmitting(false); }
   };
 
   const handleResolveFeedback = (feedbackId) => {
-    setFeedbacks(feedbacks.map(f => f._id === feedbackId ? { ...f, resolutionStatus: 'resolved' } : f));
-    setSuccess('Feedback resolved successfully!');
+    setFeedbacks(feedbacks.map(f => f.id === feedbackId ? { ...f, resolutionStatus: 'resolved' } : f));
+    setSuccess('Feedback resolved!');
     setTimeout(() => setSuccess(''), 3000);
   };
 
@@ -277,7 +324,7 @@ export default function DonorDashboard() {
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {feedbacks.map(feedback => (
                 <FeedbackDisplay
-                  key={feedback._id}
+                  key={feedback.id}
                   feedback={feedback}
                   onResolve={handleResolveFeedback}
                 />
@@ -534,8 +581,8 @@ export default function DonorDashboard() {
                 </thead>
                 <tbody>
                   {requests.map((r) => (
-                    <tr key={r._id} className="border-b border-green-900/10 hover:bg-green-900/10 transition-colors">
-                      <td className="px-4 py-3 text-white font-medium">{r.donorDetails?.businessName || (r.donorId?.name || 'Self')}</td>
+                    <tr key={r.id} className="border-b border-green-900/10 hover:bg-green-900/10 transition-colors">
+                      <td className="px-4 py-3 text-white font-medium">{r.donorBusinessName || r.donorName || 'Self'}</td>
                       <td className="px-4 py-3 text-white font-medium">{r.foodType}</td>
                       <td className="px-4 py-3 text-green-400/70">{r.quantity}</td>
                       <td className="px-4 py-3 text-green-400/70">{r.shelfLifeHours}h</td>
