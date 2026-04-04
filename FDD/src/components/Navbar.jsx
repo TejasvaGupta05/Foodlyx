@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, LayoutDashboard, Radio, Menu, X, Moon, Sun } from 'lucide-react';
+import { LogOut, LayoutDashboard, Radio, Menu, X, Moon, Sun, UserCircle } from 'lucide-react';
 import { useState } from 'react';
 
 export default function Navbar({ theme, onToggleTheme }) {
@@ -54,6 +54,12 @@ export default function Navbar({ theme, onToggleTheme }) {
               >
                 <LayoutDashboard className="w-4 h-4" /> Dashboard
               </Link>
+              <Link
+                to="/profile"
+                className="flex items-center gap-1.5 text-sm font-medium text-[#4b5563] hover:text-[#16a34a] dark:text-green-300/70 dark:hover:text-green-300 transition-colors"
+              >
+                <UserCircle className="w-4 h-4" /> Profile
+              </Link>
               <div className="text-xs font-semibold text-[#16a34a] dark:text-green-400/60 px-2 py-1 bg-[#16a34a]/10 dark:bg-green-500/10 rounded-full border border-[#16a34a]/20 dark:border-green-500/20">
                 {user.name || user.email?.split('@')[0]} · {user.role?.replace('_', ' ')}
               </div>
@@ -103,6 +109,7 @@ export default function Navbar({ theme, onToggleTheme }) {
             {user ? (
               <>
                 <Link to={dashboardLink()} className="text-sm font-medium text-[#4b5563] dark:text-green-300/70" onClick={() => setOpen(false)}>Dashboard</Link>
+                <Link to="/profile" className="text-sm font-medium text-[#4b5563] dark:text-green-300/70" onClick={() => setOpen(false)}>My Profile</Link>
                 <button onClick={handleLogout} className="text-sm font-medium text-red-600 dark:text-red-400/70 text-left">Logout</button>
               </>
             ) : (

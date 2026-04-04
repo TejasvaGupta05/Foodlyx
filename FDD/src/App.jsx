@@ -16,6 +16,7 @@ import SubscriptionPlans from './pages/SubscriptionPlans';
 import SubscriptionRequired from './pages/SubscriptionRequired';
 import SubscriptionSuccess from './pages/SubscriptionSuccess';
 import SeedDemoAccounts from './pages/SeedDemoAccounts';
+import UserProfile from './pages/UserProfile';
 import { isFirebaseConfigured } from './firebase';
 
 function ProtectedRoute({ children, allowedRoles }) {
@@ -85,6 +86,11 @@ export default function App() {
         <Route path="/admin" element={
           <ProtectedRoute allowedRoles={['admin']}>
             <AdminDashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/profile" element={
+          <ProtectedRoute>
+            <UserProfile />
           </ProtectedRoute>
         } />
         <Route path="/seed" element={<SeedDemoAccounts />} />
