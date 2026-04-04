@@ -55,7 +55,7 @@ export default function Navbar({ theme, onToggleTheme }) {
                 <LayoutDashboard className="w-4 h-4" /> Dashboard
               </Link>
               <div className="text-xs text-green-400/60 px-2 py-1 bg-green-500/10 rounded-full border border-green-500/20">
-                {user.name} · {user.role}
+                {user.name || user.email?.split('@')[0]} · {user.role?.replace('_', ' ')}
               </div>
               <button
                 onClick={handleLogout}
