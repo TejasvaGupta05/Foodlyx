@@ -26,6 +26,8 @@ router.get('/dashboard', protect, async (req, res) => {
     ]);
     const wasteDiverted = wasteDivertedAgg[0]?.total || 0;
 
+    const cancelled = await FoodRequest.countDocuments({ status: 'cancelled' });
+
     // Top donors by impactScore
     const topDonors = await User.find({ role: 'donor' })
       .sort({ impactScore: -1 })
@@ -35,6 +37,11 @@ router.get('/dashboard', protect, async (req, res) => {
     // Category breakdown
     const categoryBreakdown = await FoodRequest.aggregate([
       { $group: { _id: '$category', count: { $sum: 1 } } },
+    ]);
+
+    // Status breakdown
+    const statusBreakdown = await FoodRequest.aggregate([
+      { $group: { _id: '$status', count: { $sum: 1 } } },
     ]);
 
     // Requests over last 7 days
@@ -60,10 +67,12 @@ router.get('/dashboard', protect, async (req, res) => {
       delivered,
       pending,
       accepted,
+      cancelled,
       mealsSaved,
       wasteDiverted,
       topDonors,
       categoryBreakdown,
+      statusBreakdown,
       dailyTrend,
       ngoCount,
       donorCount,

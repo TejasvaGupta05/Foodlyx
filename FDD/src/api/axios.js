@@ -60,9 +60,94 @@ const api = {
       if (user?.role === 'ngo' || user?.role === 'animal_shelter') return { data: db.requests.filter(r => r.ngoId === uId) };
       return { data: db.requests.filter(r => r.donorId === uId) };
     }
-    if (url === '/stats/dashboard' || url === '/stats') return { data: { totalMeals: 48200, orgs: 320, kgs: 12600 } };
+    if (url === '/stats/dashboard' || url === '/stats') {
+      const totalRequests = db.requests.length;
+      const delivered = db.requests.filter((req) => req.status === 'delivered').length;
+      const pending = db.requests.filter((req) => req.status === 'pending').length;
+      const accepted = db.requests.filter((req) => req.status === 'accepted').length;
+      const cancelled = db.requests.filter((req) => req.status === 'cancelled').length;
+      const mealsSaved = db.requests.filter((req) => req.status === 'delivered').reduce((sum, req) => sum + (req.quantity || 0), 0);
+      const wasteDiverted = db.requests.filter((req) => req.status === 'delivered' && ['semi_edible', 'non_edible'].includes(req.category)).reduce((sum, req) => sum + (req.quantity || 0), 0);
+      const topDonors = db.users.filter((u) => u.role === 'donor').sort((a,b) => b.impactScore - a.impactScore).slice(0,5).map((user) => ({ name: user.name, email: user.email, impactScore: user.impactScore }));
+      const categoryBreakdown = Object.entries(db.requests.reduce((acc, req) => {
+        acc[req.category] = (acc[req.category] || 0) + 1;
+        return acc;
+      }, {})).map(([key, value]) => ({ _id: key, count: value }));
+
+      const dayBuckets = {};
+      for (let i = 6; i >= 0; i -= 1) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const key = date.toISOString().split('T')[0];
+        dayBuckets[key] = 0;
+      }
+      db.requests.forEach((req) => {
+        const dateKey = new Date(req.createdAt).toISOString().split('T')[0];
+        if (dayBuckets.hasOwnProperty(dateKey)) dayBuckets[dateKey] += 1;
+      });
+      const dailyTrend = Object.entries(dayBuckets).map(([key, count]) => ({ _id: key, count }));
+      const ngoCount = db.users.filter((u) => u.role === 'ngo').length;
+      const donorCount = db.users.filter((u) => u.role === 'donor').length;
+      const statusBreakdown = Object.entries(db.requests.reduce((acc, req) => {
+        acc[req.status] = (acc[req.status] || 0) + 1;
+        return acc;
+      }, {})).map(([key, value]) => ({ _id: key, count: value }));
+
+      return {
+        data: {
+          totalRequests,
+          delivered,
+          pending,
+          accepted,
+          cancelled,
+          mealsSaved,
+          wasteDiverted,
+          topDonors,
+          categoryBreakdown,
+          statusBreakdown,
+          dailyTrend,
+          ngoCount,
+          donorCount,
+        },
+      };
+    }
     if (url === '/stats/users') return { data: db.users };
-    if (url === '/requests/all') return { data: db.requests };
+    if (url.startsWith('/requests/all')) {
+      const parsedUrl = new URL(url, 'http://localhost');
+      const donor = parsedUrl.searchParams.get('donor')?.toLowerCase() || '';
+      const ngo = parsedUrl.searchParams.get('ngo')?.toLowerCase() || '';
+      const location = parsedUrl.searchParams.get('location')?.toLowerCase() || '';
+      const search = parsedUrl.searchParams.get('search')?.toLowerCase() || '';
+      const fromDate = parsedUrl.searchParams.get('fromDate');
+      const toDate = parsedUrl.searchParams.get('toDate');
+      const status = parsedUrl.searchParams.get('status');
+      let requests = db.requests;
+
+      if (status) requests = requests.filter((req) => req.status === status);
+      if (fromDate) {
+        const from = new Date(fromDate);
+        requests = requests.filter((req) => new Date(req.createdAt) >= from);
+      }
+      if (toDate) {
+        const to = new Date(toDate);
+        to.setHours(23, 59, 59, 999);
+        requests = requests.filter((req) => new Date(req.createdAt) <= to);
+      }
+      if (donor) requests = requests.filter((req) => (req.donorId?.name || req.donorDetails?.businessName || '').toLowerCase().includes(donor));
+      if (ngo) requests = requests.filter((req) => (req.acceptedBy?.name || '').toLowerCase().includes(ngo));
+      if (location) requests = requests.filter((req) => (req.donorDetails?.pickupAddress || req.location?.address || '').toLowerCase().includes(location));
+      if (search) {
+        requests = requests.filter((req) => {
+          const donorName = (req.donorId?.name || req.donorDetails?.businessName || '').toLowerCase();
+          const ngoName = (req.acceptedBy?.name || '').toLowerCase();
+          const locationText = (req.donorDetails?.pickupAddress || req.location?.address || '').toLowerCase();
+          const foodText = (req.foodName || req.foodType || '').toLowerCase();
+          const statusText = (req.status || '').toLowerCase();
+          return [donorName, ngoName, locationText, foodText, statusText].some((value) => value.includes(search));
+        });
+      }
+      return { data: requests };
+    }
     return { data: [] };
   },
   post: async (url, payload) => {

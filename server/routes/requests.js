@@ -163,10 +163,50 @@ router.get('/', protect, async (req, res) => {
 // GET /api/requests/all — all requests (admin)
 router.get('/all', protect, adminOnly, async (req, res) => {
   try {
-    const requests = await FoodRequest.find()
+    const { donor, ngo, fromDate, toDate, location, search, status } = req.query;
+    const filter = {};
+
+    if (status) filter.status = status;
+
+    if (fromDate || toDate) {
+      filter.createdAt = {};
+      if (fromDate) filter.createdAt.$gte = new Date(fromDate);
+      if (toDate) {
+        const endDate = new Date(toDate);
+        endDate.setHours(23, 59, 59, 999);
+        filter.createdAt.$lte = endDate;
+      }
+    }
+
+    let requests = await FoodRequest.find(filter)
       .populate('donorId', 'name email')
       .populate('acceptedBy', 'name email role')
       .sort({ createdAt: -1 });
+
+    const searchTerm = search?.toString().trim().toLowerCase();
+    const donorTerm = donor?.toString().trim().toLowerCase();
+    const ngoTerm = ngo?.toString().trim().toLowerCase();
+    const locationTerm = location?.toString().trim().toLowerCase();
+
+    if (donorTerm || ngoTerm || locationTerm || searchTerm) {
+      requests = requests.filter((request) => {
+        const donorName = (request.donorId?.name || request.donorDetails?.businessName || '').toString().toLowerCase();
+        const ngoName = (request.acceptedBy?.name || '').toString().toLowerCase();
+        const locationText = (request.donorDetails?.pickupAddress || request.location?.address || '').toString().toLowerCase();
+        const foodText = (request.foodName || request.foodType || '').toString().toLowerCase();
+        const statusText = (request.status || '').toString().toLowerCase();
+
+        const matchesDonor = donorTerm ? donorName.includes(donorTerm) : true;
+        const matchesNgo = ngoTerm ? ngoName.includes(ngoTerm) : true;
+        const matchesLocation = locationTerm ? locationText.includes(locationTerm) : true;
+        const matchesSearch = searchTerm
+          ? [donorName, ngoName, locationText, foodText, statusText].some((value) => value.includes(searchTerm))
+          : true;
+
+        return matchesDonor && matchesNgo && matchesLocation && matchesSearch;
+      });
+    }
+
     res.json(requests);
   } catch (err) {
     res.status(500).json({ message: err.message });
