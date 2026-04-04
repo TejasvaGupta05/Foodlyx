@@ -18,7 +18,7 @@ Foodlyx is a full-stack web application designed to bridge the gap between food 
 *   **Frontend**: React, Vite, Tailwind CSS, Recharts, Framer Motion
 *   **Backend & Database**: Firebase (Firestore, Firebase Authentication)
 *   **Security**: Firestore Security Rules
-*   **Legacy Backend (Reference)**: Node.js, Express, MongoDB, Socket.IO
+*   **Legacy Backend (Reference)**: Node.js, Express, Socket.IO
 
 ## 🚀 Getting Started
 
