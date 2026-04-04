@@ -77,6 +77,9 @@ function Counter({ target }) {
 }
 
 export default function Landing() {
+  const [selectedDonation, setSelectedDonation] = useState(100);
+  const [customDonation, setCustomDonation] = useState('');
+
   return (
     <div className="hero-bg min-h-screen pt-20 pb-16">
       {/* Hero */}
@@ -187,6 +190,138 @@ export default function Landing() {
                 />
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Support Beyond Surplus - Charity Section */}
+      <section className="max-w-6xl mx-auto px-4 py-16">
+        <div className="glass grid lg:grid-cols-[0.95fr_1.05fr] gap-8 p-8 border border-green-500/20 bg-[#07110d]/80 shadow-[0_25px_80px_rgba(0,0,0,0.28)]">
+          <div className="flex flex-col justify-center gap-6">
+            <div className="space-y-6">
+              <div className="inline-flex items-center gap-2 rounded-full border border-green-400/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.35em] text-green-200 shadow-[0_0_0_rgba(0,0,0,0)] transition-all duration-300 hover:bg-white/15 hover:shadow-[0_0_30px_rgba(74,222,128,0.16)] hover:brightness-105 backdrop-blur-md">
+                <Leaf className="w-4 h-4 text-green-300" />
+                SUPPORT BEYOND SURPLUS
+              </div>
+
+              <div className="space-y-4">
+                <h2 className="text-5xl sm:text-[4.5rem] font-black tracking-tight leading-tight text-white">
+                  Support Beyond <span className="text-green-400">Surplus</span>
+                </h2>
+                <p className="text-green-300/70 text-lg leading-relaxed">
+                  Not everyone has surplus food to donate — but everyone can still make a difference.
+                </p>
+                <p className="text-green-300/70 text-lg leading-relaxed">
+                  If you wish to contribute out of goodwill, you can support Foodlyx through voluntary donations. Your contribution helps us manage food collection, transportation, storage, and distribution to those in need.
+                </p>
+              </div>
+
+              <p className="text-green-400/70 mb-3">👉 Choose an amount or enter your own — donate as you wish.</p>
+              <Link
+                to="/charity"
+                className="inline-flex items-center justify-center gap-3 rounded-full bg-gradient-to-r from-green-500 to-emerald-400 px-8 py-4 text-base font-semibold text-black shadow-[0_15px_40px_rgba(74,222,128,0.18)] transition-all duration-300 hover:scale-[1.01] hover:shadow-[0_20px_50px_rgba(74,222,128,0.28)]"
+              >
+                <span className="inline-flex items-center gap-2">
+                  <Heart className="w-4 h-4 text-white" /> Donate Now
+                </span>
+              </Link>
+              <p className="text-xs text-green-400/60 mt-6 inline-flex items-center gap-2">
+                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-green-500/10 text-green-300">✓</span>
+                100% of your contribution goes towards helping deliver food to those who need it most.
+              </p>
+            </div>
+          </div>
+
+          <div className="relative overflow-hidden rounded-[32px] border border-green-500/20 bg-black/25 p-6 shadow-[0_25px_65px_rgba(0,0,0,0.35)]">
+            <div className="absolute inset-0 rounded-[32px] bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.18),transparent_18%),radial-gradient(circle_at_bottom_right,_rgba(52,211,153,0.12),transparent_18%)] pointer-events-none" />
+            <div className="relative glass h-full rounded-[28px] border border-green-500/20 p-6">
+              <div className="flex flex-col gap-4 border-b border-green-500/10 pb-5 mb-5">
+                <div className="inline-flex items-center gap-3 rounded-3xl bg-green-500/10 px-4 py-2 text-sm text-green-200">
+                  <Heart className="w-5 h-5 text-green-300" />
+                  Helping hands
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold text-white">Choose Your Contribution</h3>
+                  <p className="text-green-400/60 text-sm mt-1">Every contribution fuels a better tomorrow.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4 mb-5">
+                {[
+                  { label: '₹100', value: 100 },
+                  { label: '₹1000', value: 1000 },
+                  { label: 'Custom', value: 'custom' },
+                ].map((option) => {
+                  const active = selectedDonation === option.value;
+                  return (
+                    <button
+                      key={option.label}
+                      type="button"
+                      onClick={() => {
+                        setSelectedDonation(option.value);
+                        if (option.value !== 'custom') setCustomDonation('');
+                      }}
+                      className={`donation-card rounded-3xl border-2 p-5 text-left transition-all duration-300 ${active ? 'border-green-400 bg-green-500/15 text-white shadow-donation selected' : 'border-green-500/20 bg-black/20 text-green-200 hover:border-green-400/60 hover:shadow-donationHover'}`}
+                    >
+                      <span className="block text-lg font-bold mb-2">{option.label}</span>
+                      <span className="text-xs text-green-300/60">{option.value === 'custom' ? 'Enter any amount' : 'Instant support'}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+<div className="rounded-[28px] border border-green-500/20 bg-black/10 p-5 mb-5">
+                  <div className="flex items-center justify-between gap-4 mb-4">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.25em] text-green-300/60">Selected Donation</p>
+                      <p className="text-4xl font-black text-white">{selectedDonation === 'custom' ? (customDonation ? `₹${customDonation}` : '₹0') : `₹${selectedDonation}`}</p>
+                    </div>
+                    <div className="inline-flex items-center gap-2 rounded-full border border-green-500/20 bg-black/30 px-4 py-2 text-sm text-green-200">
+                      Secure
+                    </div>
+                  </div>
+                  <div className="rounded-full bg-white/5 h-3 overflow-hidden mb-3">
+                    <div className="h-full rounded-full bg-gradient-to-r from-green-400 via-emerald-400 to-lime-400" style={{ width: '68%' }} />
+                  </div>
+                  <p className="text-xs text-green-400/60">₹68,000 raised this month towards feeding & supporting communities.</p>
+              </div>
+
+              <div className="relative overflow-hidden rounded-[28px] border border-green-500/20 bg-black/15 p-4 mb-6">
+                <div className={`transition-all duration-500 ${selectedDonation === 'custom' ? 'max-h-[140px] opacity-100' : 'max-h-0 opacity-0 pointer-events-none'}`}>
+                  <div className="flex flex-col gap-3">
+                    <label className="text-xs uppercase tracking-[0.25em] text-green-400/60">Custom amount</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={customDonation}
+                        onChange={(e) => {
+                          setCustomDonation(e.target.value);
+                          if (selectedDonation !== 'custom') setSelectedDonation('custom');
+                        }}
+                        placeholder="₹250"
+                        className="w-full rounded-3xl border border-green-500/20 bg-black/20 px-4 py-4 text-2xl font-black text-white outline-none focus:border-green-400/70 focus:ring-2 focus:ring-green-500/20 transition-all"
+                      />
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-green-300/60">INR</span>
+                    </div>
+                  </div>
+                </div>
+                {selectedDonation !== 'custom' && (
+                  <div className="absolute inset-0 flex items-center justify-center text-green-400/50 text-sm pointer-events-none">
+                    Select Custom to enter a donation amount.
+                  </div>
+                )}
+              </div>
+
+              <Link
+                to="/charity"
+                className="inline-flex w-full items-center justify-center gap-3 rounded-full bg-gradient-to-r from-green-500 to-emerald-400 px-6 py-4 text-base font-bold text-black shadow-[0_18px_40px_rgba(74,222,128,0.22)] transition-all duration-300 hover:scale-[1.01] hover:shadow-[0_24px_60px_rgba(74,222,128,0.34)]"
+              >
+                Contribute Securely
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
           </div>
         </div>
       </section>
