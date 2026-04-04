@@ -189,11 +189,31 @@ const api = {
 
     if (url.startsWith('/requests/') && url.endsWith('/accept')) {
       const reqId = url.split('/')[2];
+      const currentUserId = getUserIdFromToken();
       const reqIndex = db.requests.findIndex(r => r._id === reqId);
+      const user = db.users.find(u => u._id === currentUserId);
       if (reqIndex !== -1) {
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date();
+        endOfDay.setHours(23, 59, 59, 999);
+        const acceptedToday = db.requests.filter((r) => {
+          return (
+            r.acceptedBy?._id === currentUserId &&
+            r.status === 'accepted' &&
+            r.acceptedAt &&
+            new Date(r.acceptedAt) >= startOfDay &&
+            new Date(r.acceptedAt) <= endOfDay
+          );
+        }).length;
+        if (acceptedToday >= 2) {
+          return Promise.reject({ response: { data: { message: 'Daily limit reached. You can only accept 2 donation requests per day.' } } });
+        }
+
         db.requests[reqIndex].status = 'accepted';
-        db.requests[reqIndex].ngoId = getUserIdFromToken();
-        db.requests[reqIndex].acceptedBy = db.users.find(u => u._id === db.requests[reqIndex].ngoId);
+        db.requests[reqIndex].ngoId = currentUserId;
+        db.requests[reqIndex].acceptedBy = db.users.find(u => u._id === currentUserId);
+        db.requests[reqIndex].acceptedAt = new Date().toISOString();
         setDB(db);
         return { data: db.requests[reqIndex] };
       }

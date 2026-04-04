@@ -6,7 +6,17 @@
   --primary-light: #4ade80;
   --accent: #f59e0b;
   --accent-dark: #d97706;
-  --bg-dark: #0a0f0d;
+  --bg-primary: #F9FAFB;
+  --bg-card: #FFFFFF;
+  --bg-card2: #F8F9FA;
+  --border: #E5E7EB;
+  --text-primary: #111827;
+  --text-secondary: #4B5563;
+  --text-muted: #6B7280;
+}
+
+.dark {
+  --bg-primary: #0a0f0d;
   --bg-card: #111916;
   --bg-card2: #1a2520;
   --border: rgba(74, 222, 128, 0.15);
@@ -21,7 +31,7 @@
 
 body {
   font-family: 'Inter', sans-serif;
-  background-color: var(--bg-dark);
+  background-color: var(--bg-primary);
   color: var(--text-primary);
   margin: 0;
   padding: 0;
@@ -44,10 +54,14 @@ body {
 
 /* Glassmorphism card */
 .glass {
-  background: rgba(17, 25, 22, 0.7);
+  background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(16px);
   border: 1px solid var(--border);
   border-radius: 16px;
+}
+
+.dark .glass {
+  background: rgba(17, 25, 22, 0.7);
 }
 
 /* Glow effect */

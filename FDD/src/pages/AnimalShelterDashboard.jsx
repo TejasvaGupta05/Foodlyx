@@ -5,6 +5,7 @@ import { Package, Truck, AlertTriangle, MessageSquare } from 'lucide-react';
 import FoodCard from '../components/FoodCard';
 import FeedbackForm from '../components/FeedbackForm';
 import FeedbackDisplay from '../components/FeedbackDisplay';
+import ProtectedRoute from '../components/ProtectedRoute';
 
 export default function AnimalShelterDashboard() {
   const { user } = useAuth();
@@ -87,7 +88,8 @@ export default function AnimalShelterDashboard() {
   };
 
   return (
-    <div className="min-h-screen pt-20 pb-16 px-4 hero-bg">
+    <ProtectedRoute>
+      <div className="min-h-screen pt-20 pb-16 px-4 hero-bg">
       <div className="max-w-5xl mx-auto">
         {/* Header - Amber styling to differentiate from green NGO */}
         <div className="mb-8 p-6 bg-amber-500/10 border border-amber-500/30 rounded-2xl glass">
@@ -218,5 +220,6 @@ export default function AnimalShelterDashboard() {
         </div>
       )}
     </div>
+    </ProtectedRoute>
   );
 }

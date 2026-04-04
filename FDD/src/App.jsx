@@ -12,6 +12,10 @@ import LiveFeed from './pages/LiveFeed';
 import Charity from './pages/Charity';
 import AnimalShelterDashboard from './pages/AnimalShelterDashboard';
 import CompostUnitDashboard from './pages/CompostUnitDashboard';
+import SubscriptionPlans from './pages/SubscriptionPlans';
+import SubscriptionRequired from './pages/SubscriptionRequired';
+import SubscriptionSuccess from './pages/SubscriptionSuccess';
+import { isFirebaseConfigured } from './firebase';
 
 function ProtectedRoute({ children, allowedRoles }) {
   const { user } = useAuth();
@@ -31,7 +35,6 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    document.documentElement.classList.toggle('light', theme === 'light');
     document.documentElement.classList.toggle('dark', theme === 'dark');
     localStorage.setItem('theme', theme);
   }, [theme]);
@@ -43,6 +46,11 @@ export default function App() {
   return (
     <BrowserRouter>
       <Navbar theme={theme} onToggleTheme={toggleTheme} />
+      {!isFirebaseConfigured && (
+        <div className="fixed top-16 left-0 right-0 z-50 bg-amber-500/95 text-black text-center py-3 px-4 shadow-lg">
+          Firebase is not configured. Copy <code className="font-mono">.env.example</code> to <code className="font-mono">.env</code> and add your <code className="font-mono">VITE_FIREBASE_*</code> keys.
+        </div>
+      )}
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
@@ -69,6 +77,9 @@ export default function App() {
             <CompostUnitDashboard />
           </ProtectedRoute>
         } />
+        <Route path="/subscribe" element={<SubscriptionPlans />} />
+        <Route path="/subscribe/success" element={<SubscriptionSuccess />} />
+        <Route path="/subscription-required" element={<SubscriptionRequired />} />
         <Route path="/admin" element={
           <ProtectedRoute allowedRoles={['admin']}>
             <AdminDashboard />

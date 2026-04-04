@@ -6,10 +6,13 @@ import { Filter, MapPin, Package, CheckCircle, AlertCircle, Truck, MessageSquare
 import FoodCard from '../components/FoodCard';
 import FeedbackForm from '../components/FeedbackForm';
 import FeedbackDisplay from '../components/FeedbackDisplay';
+import ProtectedRoute from '../components/ProtectedRoute';
+import { useNavigate } from 'react-router-dom';
 
 export default function NGODashboard() {
   const { user } = useAuth();
   const { socket } = useSocket();
+  const navigate = useNavigate();
   const [requests, setRequests] = useState([]);
   const [myRequests, setMyRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -90,7 +93,8 @@ export default function NGODashboard() {
   };
 
   return (
-    <div className="min-h-screen pt-20 pb-16 px-4">
+    <ProtectedRoute>
+      <div className="min-h-screen pt-20 pb-16 px-4">
       <div className="max-w-5xl mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -100,6 +104,32 @@ export default function NGODashboard() {
             {!user?.isVerified && <span className="ml-2 text-yellow-400 text-xs">(Pending verification)</span>}
           </p>
         </div>
+
+        {/* Subscription Status */}
+        {user?.subscription && (
+          <div className="mb-6 p-4 bg-green-900/20 border border-green-500/30 rounded-2xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-white">Subscription Status</h3>
+                <p className="text-green-300/70">
+                  Plan: {user.subscription.plan} | Status: {user.subscription.status}
+                </p>
+                <p className="text-green-300/70">
+                  Used: {user.subscription.usedRequests} / {user.subscription.usageLimit} requests
+                </p>
+                <p className="text-green-300/70">
+                  Expires: {new Date(user.subscription.expiryDate.seconds * 1000).toLocaleDateString()}
+                </p>
+              </div>
+              <button
+                onClick={() => navigate('/subscribe')}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-500 transition"
+              >
+                Manage Subscription
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Toast */}
         {toast && (
@@ -218,5 +248,6 @@ export default function NGODashboard() {
         </div>
       )}
     </div>
+    </ProtectedRoute>
   );
 }

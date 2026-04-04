@@ -1,33 +1,76 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { auth, db } from '../firebase';
+import { auth, db, isFirebaseConfigured } from '../firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
+import backend from '../api/backend';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  // Start with null — children render immediately, no loading gate
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('foodlyx_user') || 'null');
+    } catch {
+      return null;
+    }
+  });
 
   useEffect(() => {
+    try {
+      localStorage.setItem('foodlyx_user', JSON.stringify(user));
+    } catch {
+      // ignore localStorage write errors
+    }
+  }, [user]);
+
+  useEffect(() => {
+    const syncBackend = async (profile) => {
+      try {
+        const response = await backend.post('/users/sync', {
+          firebaseUid: profile.uid,
+          name: profile.name,
+          email: profile.email,
+          role: profile.role,
+          location: profile.location,
+        });
+
+        setUser((prev) => ({
+          ...prev,
+          backendId: response._id,
+          subscription: response.subscription || null,
+        }));
+      } catch (err) {
+        console.warn('Backend sync failed:', err.message);
+      }
+    };
+
+    if (user?.uid) {
+      syncBackend(user);
+    }
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (!isFirebaseConfigured || !auth) {
+      setUser(null);
+      return undefined;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // Don't set baseUser immediately — wait for Firestore fetch first
-        // This prevents the role:'donor' flash from overwriting a correct login
-        try {
-          const docSnap = await getDoc(doc(db, 'users', firebaseUser.uid));
-          if (docSnap.exists()) {
-            // Full profile from Firestore — has correct name, role, etc.
-            setUser({ uid: firebaseUser.uid, email: firebaseUser.email, ...docSnap.data() });
-          } else {
-            // No Firestore doc yet (new user) — minimum viable user
-            setUser({ uid: firebaseUser.uid, email: firebaseUser.email, role: 'donor' });
+        if (db) {
+          try {
+            const docSnap = await getDoc(doc(db, 'users', firebaseUser.uid));
+            if (docSnap.exists()) {
+              setUser({ uid: firebaseUser.uid, email: firebaseUser.email, ...docSnap.data() });
+            } else {
+              setUser({ uid: firebaseUser.uid, email: firebaseUser.email, role: 'donor' });
+            }
+          } catch (err) {
+            console.warn('Could not fetch Firestore profile:', err.message);
+            setUser((prev) => prev ?? { uid: firebaseUser.uid, email: firebaseUser.email, role: 'donor' });
           }
-        } catch (err) {
-          console.warn('Could not fetch Firestore profile:', err.message);
-          // Can't reach Firestore — use whatever login() has already set (don't overwrite)
-          // If user is not set yet (page refresh), set minimal auth data
-          setUser(prev => prev ?? { uid: firebaseUser.uid, email: firebaseUser.email, role: 'donor' });
+        } else {
+          setUser({ uid: firebaseUser.uid, email: firebaseUser.email, role: 'donor' });
         }
       } else {
         setUser(null);
@@ -43,9 +86,19 @@ export function AuthProvider({ children }) {
   const login = (userData) => setUser(userData);
 
   const logout = async () => {
+    setUser(null);
+    try {
+      localStorage.removeItem('foodlyx_user');
+    } catch {
+      // ignore
+    }
+
+    if (!isFirebaseConfigured || !auth) {
+      return;
+    }
+
     try {
       await signOut(auth);
-      setUser(null);
     } catch (err) {
       console.error('Logout error:', err);
     }

@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Leaf, LogOut, LayoutDashboard, Radio, Menu, X, Moon, Sun } from 'lucide-react';
+import { LogOut, LayoutDashboard, Radio, Menu, X, Moon, Sun } from 'lucide-react';
 import { useState } from 'react';
 
 export default function Navbar({ theme, onToggleTheme }) {
@@ -25,8 +25,8 @@ export default function Navbar({ theme, onToggleTheme }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 group">
-          <div className="w-9 h-9 rounded-xl bg-green-500/20 border border-green-500/30 flex items-center justify-center group-hover:bg-green-500/30 transition-colors">
-            <Leaf className="w-5 h-5 text-green-400" />
+          <div className="w-9 h-9 rounded-xl bg-green-500/20 border border-green-500/30 overflow-hidden group-hover:bg-green-500/30 transition-colors">
+            <img src="/logo.jpeg" alt="Foodlyx logo" className="w-full h-full object-cover" />
           </div>
           <span className="font-bold text-lg gradient-text hidden sm:block">FOODLYX</span>
         </Link>

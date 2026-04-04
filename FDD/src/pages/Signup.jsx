@@ -51,7 +51,7 @@ export default function Signup() {
         location: { lat: parseFloat(form.lat) || 0, lng: parseFloat(form.lng) || 0 },
         isVerified: false,
         impactScore: 0,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
       };
 
       // 3. Save profile to Firestore — MUST await so data is available on next login
@@ -63,9 +63,10 @@ export default function Signup() {
       // 5. Navigate based on role
       if (form.role === 'donor') navigate('/donor');
       else if (form.role === 'admin') navigate('/admin');
-      else if (form.role === 'animal_shelter') navigate('/shelter');
+      else if (form.role === 'animal_shelter') navigate('/subscribe');
       else if (form.role === 'compost_unit') navigate('/compost');
-      else navigate('/ngo');
+      else if (form.role === 'ngo') navigate('/subscribe');
+      else navigate('/subscribe');
 
     } catch (err) {
       console.error(err);
