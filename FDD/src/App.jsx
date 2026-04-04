@@ -12,6 +12,7 @@ import LiveFeed from './pages/LiveFeed';
 import Charity from './pages/Charity';
 import AnimalShelterDashboard from './pages/AnimalShelterDashboard';
 import CompostUnitDashboard from './pages/CompostUnitDashboard';
+import Community from './pages/Community';
 import SubscriptionPlans from './pages/SubscriptionPlans';
 import SubscriptionRequired from './pages/SubscriptionRequired';
 import SubscriptionSuccess from './pages/SubscriptionSuccess';
@@ -59,6 +60,7 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/feed" element={<LiveFeed />} />
+        <Route path="/community" element={<Community />} />
         <Route path="/charity" element={<Charity />} />
         <Route path="/donor" element={
           <ProtectedRoute allowedRoles={['donor']}>
