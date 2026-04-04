@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import api from '../api/axios';
-import { Package, Truck, AlertTriangle, MessageSquare } from 'lucide-react';
+import { db } from '../firebase';
+import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { Package, Truck, AlertTriangle, MessageSquare, Plus } from 'lucide-react';
 import FoodCard from '../components/FoodCard';
 import FeedbackForm from '../components/FeedbackForm';
 import FeedbackDisplay from '../components/FeedbackDisplay';
@@ -19,7 +20,6 @@ export default function AnimalShelterDashboard() {
   const [toast, setToast] = useState('');
   const [feedbacks, setFeedbacks] = useState([]);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState(null);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
 
@@ -27,14 +27,18 @@ export default function AnimalShelterDashboard() {
     try {
       const params = new URLSearchParams();
       if (filters.category !== 'all') params.set('category', filters.category);
-      if (filters.urgency) params.set('urgency', filters.urgency);
       
       const { data } = await api.get(`/requests?${params}`);
       
-      // Client-side filtering logic to showcase food that is potentially dangerous for humans but fine for animals/compost
+      // Client-side filtering for urgency
       let filtered = data;
+      if (filters.urgency) {
+        filtered = filtered.filter(req => req.urgency === filters.urgency);
+      }
+      
+      // Client-side filtering logic to showcase food that is potentially dangerous for humans but fine for animals/compost
       if(filters.category === 'semi_edible') {
-         filtered = data.filter(d => ['dry_food', 'perishable_food'].includes(d.category));
+         filtered = filtered.filter(d => ['dry_food', 'perishable_food'].includes(d.category));
       }
       setRequests(filtered);
 
@@ -43,16 +47,26 @@ export default function AnimalShelterDashboard() {
     } catch { } finally { setLoading(false); }
   };
 
-  const fetchFeedbacks = async () => {
-    try {
-      const { data } = await api.get(`/feedback/receiver/${user?._id}`);
-      setFeedbacks(data);
-    } catch (error) {
-      console.error('Failed to fetch feedbacks:', error);
-    }
+  const fetchFeedbacks = () => {
+    if (!user?.uid) return;
+    const q = query(
+      collection(db, 'feedbacks'),
+      where('submittedById', '==', user.uid),
+      orderBy('createdAt', 'desc')
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      setFeedbacks(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, (err) => console.warn('Feedback listener error:', err.message));
+    return unsub;
   };
 
-  useEffect(() => { fetchRequests(); fetchFeedbacks(); }, [filters]);
+  useEffect(() => { fetchRequests(); }, [filters]);
+
+  useEffect(() => {
+    const unsub = fetchFeedbacks();
+    return () => unsub?.();
+  }, [user?.uid]);
+
 
   const handleAccept = async (id) => {
     try {
@@ -77,14 +91,13 @@ export default function AnimalShelterDashboard() {
     setShowFeedbackModal(true);
   };
 
-  const handleFeedbackSubmit = () => {
-    fetchFeedbacks();
-    showToast('Feedback submitted successfully!');
+  const handleFeedbackSubmit = (newFeedback) => {
+    showToast('Feedback submitted!');
   };
 
   const handleResolveFeedback = (feedbackId) => {
-    setFeedbacks(feedbacks.map(f => f._id === feedbackId ? { ...f, resolutionStatus: 'resolved' } : f));
-    showToast('Feedback resolved!');
+    setFeedbacks(feedbacks.map(f => f.id === feedbackId ? { ...f, resolutionStatus: 'resolved' } : f));
+    showToast('Marked as resolved!');
   };
 
   return (
@@ -176,17 +189,10 @@ export default function AnimalShelterDashboard() {
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-semibold text-white">Feedback & Complaints</h2>
               <button
-                onClick={() => {
-                  const deliveredRequests = myRequests.filter(r => r.status === 'delivered');
-                  if (deliveredRequests.length === 0) {
-                    showToast('No delivered requests to feedback on');
-                    return;
-                  }
-                  openFeedbackModal(deliveredRequests[0]);
-                }}
-                className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg transition-colors"
+                onClick={() => setShowFeedbackModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg transition-colors text-sm font-medium"
               >
-                Submit Feedback
+                <Plus className="w-4 h-4" /> Submit Feedback
               </button>
             </div>
 
@@ -196,7 +202,7 @@ export default function AnimalShelterDashboard() {
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {feedbacks.map(feedback => (
                   <FeedbackDisplay
-                    key={feedback._id}
+                    key={feedback.id}
                     feedback={feedback}
                     onResolve={handleResolveFeedback}
                   />
@@ -207,13 +213,10 @@ export default function AnimalShelterDashboard() {
         )}
       </div>
 
-      {/* Feedback Modal */}
-      {showFeedbackModal && selectedRequest && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      {showFeedbackModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <FeedbackForm
-            foodRequestId={selectedRequest._id}
-            deliveryId={selectedRequest.deliveryId}
-            facilityName={selectedRequest.donorDetails?.businessName || selectedRequest.donorId?.name || ''}
+            accentColor="amber"
             onSubmit={handleFeedbackSubmit}
             onClose={() => setShowFeedbackModal(false)}
           />

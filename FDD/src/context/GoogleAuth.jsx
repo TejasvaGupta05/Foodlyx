@@ -17,11 +17,18 @@ const ROLE_LABELS = {
 // Role selection modal shown to new Google users
 export function RoleSelectModal({ googleUser, onConfirm, onCancel }) {
   const [role, setRole] = useState('donor');
+  const [address, setAddress] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
+  const [donorCategory, setDonorCategory] = useState('individual');
   const [saving, setSaving] = useState(false);
 
   const handleConfirm = async () => {
+    if (!address || !contactPhone) {
+      alert("Please enter your address and phone number.");
+      return;
+    }
     setSaving(true);
-    await onConfirm(role);
+    await onConfirm({ role, address, contactPhone, donorCategory });
     setSaving(false);
   };
 
@@ -75,6 +82,20 @@ export function RoleSelectModal({ googleUser, onConfirm, onCancel }) {
               {label}
             </button>
           ))}
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
+          <input type="tel" value={contactPhone} onChange={e => setContactPhone(e.target.value)} placeholder="Phone Number" required style={{ width: '100%', padding: '10px 14px', background: 'rgba(74,222,128,0.05)', border: '1px solid rgba(74,222,128,0.2)', borderRadius: '8px', color: '#fff', fontSize: '13px', outline: 'none' }} />
+          <input type="text" value={address} onChange={e => setAddress(e.target.value)} placeholder="Full Address" required style={{ width: '100%', padding: '10px 14px', background: 'rgba(74,222,128,0.05)', border: '1px solid rgba(74,222,128,0.2)', borderRadius: '8px', color: '#fff', fontSize: '13px', outline: 'none' }} />
+          {role === 'donor' && (
+            <select value={donorCategory} onChange={e => setDonorCategory(e.target.value)} style={{ width: '100%', padding: '10px 14px', background: 'rgba(74,222,128,0.05)', border: '1px solid rgba(74,222,128,0.2)', borderRadius: '8px', color: '#fff', fontSize: '13px', outline: 'none' }}>
+              <option value="individual" style={{ background: '#0f1a12' }}>Individual</option>
+              <option value="mess" style={{ background: '#0f1a12' }}>Mess</option>
+              <option value="hotels_restaurants" style={{ background: '#0f1a12' }}>Hotels/Restaurants</option>
+              <option value="party_gathering" style={{ background: '#0f1a12' }}>Party/Gathering</option>
+              <option value="other" style={{ background: '#0f1a12' }}>Other</option>
+            </select>
+          )}
         </div>
 
         <div style={{ display: 'flex', gap: '8px' }}>
@@ -156,7 +177,7 @@ export function useGoogleAuth() {
     }
   };
 
-  const handleRoleConfirm = async (role) => {
+  const handleRoleConfirm = async ({ role, address, contactPhone, donorCategory }) => {
     if (!pendingGoogleUser) return;
     try {
       const userData = {
@@ -164,8 +185,12 @@ export function useGoogleAuth() {
         email: pendingGoogleUser.email,
         photoURL: pendingGoogleUser.photoURL || '',
         role,
+        address,
+        contactPhone,
+        donorCategory: role === 'donor' ? donorCategory : 'individual',
         location: { lat: 0, lng: 0 },
         isVerified: false,
+        isSubscribed: false,
         impactScore: 0,
         createdAt: new Date().toISOString(),
       };

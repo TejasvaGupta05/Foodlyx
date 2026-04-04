@@ -15,6 +15,7 @@ import CompostUnitDashboard from './pages/CompostUnitDashboard';
 import SubscriptionPlans from './pages/SubscriptionPlans';
 import SubscriptionRequired from './pages/SubscriptionRequired';
 import SubscriptionSuccess from './pages/SubscriptionSuccess';
+import SeedDemoAccounts from './pages/SeedDemoAccounts';
 import { isFirebaseConfigured } from './firebase';
 
 function ProtectedRoute({ children, allowedRoles }) {
@@ -35,6 +36,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    document.documentElement.classList.toggle('light', theme === 'light');
     document.documentElement.classList.toggle('dark', theme === 'dark');
     localStorage.setItem('theme', theme);
   }, [theme]);
@@ -85,6 +87,7 @@ export default function App() {
             <AdminDashboard />
           </ProtectedRoute>
         } />
+        <Route path="/seed" element={<SeedDemoAccounts />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

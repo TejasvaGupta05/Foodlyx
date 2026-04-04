@@ -9,6 +9,9 @@ export const checkSubscription = async (uid) => {
     if (!userSnap.exists()) return false;
 
     const data = userSnap.data();
+
+    if (data.isSubscribed === true) return true;
+
     const sub = data.subscription;
 
     if (!sub) return false;

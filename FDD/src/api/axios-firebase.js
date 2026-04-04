@@ -1,7 +1,3 @@
-// FIREBASE BACKEND API LAYER
-// All API calls now route through Firebase Firestore via firebase-api.js
-// Frontend code remains unchanged - same interface, different backend
-
 import { auth } from '../firebase';
 import firebaseApi from './firebase-api';
 
@@ -24,17 +20,11 @@ const api = {
       }
 
       // Requests endpoints
-      if (url.startsWith('/requests') && url !== '/requests/my' && url !== '/requests/all') {
-        // Parse URL parameters for filtering
-        const urlObj = new URL(url, 'http://localhost');
-        const filters = {};
-        for (let [key, value] of urlObj.searchParams) {
-          filters[key] = value;
-        }
-        const requests = await firebaseApi.getFoodRequests(filters);
+      if (url === '/requests') {
+        const requests = await firebaseApi.getFoodRequests({ status: 'pending' });
         return { data: requests };
       }
-      if (url === '/requests/all' || url.startsWith('/requests/all?')) {
+      if (url === '/requests/all') {
         const requests = await firebaseApi.getFoodRequests();
         return { data: requests };
       }
@@ -49,22 +39,19 @@ const api = {
         const stats = await firebaseApi.getStats();
         return { data: stats };
       }
-      if (url === '/stats/users') {
-        throw new Error('Not implemented in Firebase');
-      }
 
       // Feedback endpoints
-      if (url.includes('/feedback/receiver/')) {
+      if (url.match(/^\/feedback\/receiver\//)) {
         const receiverId = url.split('/').pop();
         const feedbacks = await firebaseApi.getFeedbackByReceiver(receiverId);
         return { data: feedbacks };
       }
-      if (url.includes('/feedback/donor/')) {
+      if (url.match(/^\/feedback\/donor\//)) {
         const donorId = url.split('/').pop();
         const feedbacks = await firebaseApi.getFeedbackByDonor(donorId);
         return { data: feedbacks };
       }
-      if (url.startsWith('/feedback/') && !url.includes('/resolve')) {
+      if (url.match(/^\/feedback\/.*$/)) {
         const foodRequestId = url.split('/').pop();
         const feedback = await firebaseApi.getFeedbackForRequest(foodRequestId);
         return { data: feedback };
@@ -78,17 +65,9 @@ const api = {
   },
 
   // ===== POST =====
-  post: async (url, data = {}) => {
+  post: async (url, data) => {
     try {
       const userId = getCurrentUserId();
-
-      // Authentication endpoints
-      if (url === '/auth/login') {
-        throw new Error('Use Firebase Auth for login - not mock API');
-      }
-      if (url === '/auth/signup' || url === '/auth/register') {
-        throw new Error('Use Firebase Auth for signup - not mock API');
-      }
 
       // Food request creation
       if (url === '/requests') {
@@ -98,7 +77,7 @@ const api = {
       }
 
       // Request acceptance
-      if (url.includes('/accept')) {
+      if (url.match(/^\/requests\/.*\/accept$/)) {
         if (!userId) throw new Error('User not authenticated');
         const requestId = url.split('/')[2];
         await firebaseApi.acceptFoodRequest(requestId, userId);
@@ -119,20 +98,6 @@ const api = {
         return { data: feedback };
       }
 
-      // Charity donation (mock for now)
-      if (url === '/charity/donate') {
-        return {
-          data: {
-            _id: 'donation_' + Date.now(),
-            donorId: userId,
-            amount: data.amount,
-            status: 'completed',
-            transactionId: 'TXN-' + Date.now(),
-            createdAt: new Date().toISOString()
-          }
-        };
-      }
-
       throw new Error(`Unknown POST endpoint: ${url}`);
     } catch (error) {
       console.error(`POST ${url}:`, error);
@@ -141,26 +106,26 @@ const api = {
   },
 
   // ===== PATCH =====
-  patch: async (url, data = {}) => {
+  patch: async (url, data) => {
     try {
       const userId = getCurrentUserId();
 
       // Deliver request
-      if (url.includes('/deliver')) {
+      if (url.match(/^\/requests\/.*\/deliver$/)) {
         const requestId = url.split('/')[2];
         await firebaseApi.deliverFoodRequest(requestId);
         return { data: { success: true } };
       }
 
       // Cancel request
-      if (url.includes('/cancel')) {
+      if (url.match(/^\/requests\/.*\/cancel$/)) {
         const requestId = url.split('/')[2];
         await firebaseApi.cancelFoodRequest(requestId);
         return { data: { success: true } };
       }
 
       // Like post
-      if (url.includes('/like')) {
+      if (url.match(/^\/community\/posts\/.*\/like$/)) {
         if (!userId) throw new Error('User not authenticated');
         const postId = url.split('/')[3];
         await firebaseApi.likePost(postId, userId);
@@ -168,7 +133,7 @@ const api = {
       }
 
       // Resolve feedback
-      if (url.includes('/resolve')) {
+      if (url.match(/^\/feedback\/.*\/resolve$/)) {
         if (!userId) throw new Error('User not authenticated');
         const feedbackId = url.split('/')[2];
         await firebaseApi.resolveFeedback(feedbackId, userId);
@@ -183,8 +148,10 @@ const api = {
   },
 
   // ===== PUT =====
-  put: async (url, data = {}) => {
+  put: async (url, data) => {
     try {
+      const userId = getCurrentUserId();
+
       throw new Error(`Unknown PUT endpoint: ${url}`);
     } catch (error) {
       console.error(`PUT ${url}:`, error);
@@ -195,23 +162,14 @@ const api = {
   // ===== DELETE =====
   delete: async (url) => {
     try {
+      const userId = getCurrentUserId();
+
       throw new Error(`Unknown DELETE endpoint: ${url}`);
     } catch (error) {
       console.error(`DELETE ${url}:`, error);
       throw error;
     }
   },
-
-  // Axios compatibility
-  interceptors: {
-    request: { use: () => { } },
-    response: { use: () => { } }
-  }
 };
 
 export default api;
-
-const _olduserdata = [
-  // Mock users removed - using Firebase Auth now
-];
-

@@ -1,0 +1,112 @@
+// Firestore Security Rules for Foodlyx
+// Deploy this via Firebase Console -> Firestore Database -> Rules
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(uid) {
+      return request.auth.uid == uid;
+    }
+    
+    function userRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    // ===== USERS COLLECTION =====
+    // Users can read their own profile and all public user data
+    // Users can only write to their own profile
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
+      allow create: if isAuthenticated();
+    }
+
+    // ===== FOOD REQUESTS COLLECTION =====
+    // Anyone authenticated can read food requests
+    // Only donors can create requests
+    // Only the requester or accepted NGO can update details
+    match /foodRequests/{requestId} {
+      allow read: if isAuthenticated();
+      
+      allow create: if isAuthenticated() && 
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'donor';
+      
+      allow update: if isAuthenticated() && 
+                       (isOwner(resource.data.donorId) || 
+                        request.auth.uid == resource.data.acceptedBy ||
+                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      
+      allow delete: if isAuthenticated() && 
+                       (isOwner(resource.data.donorId) ||
+                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+    }
+
+    // ===== FEEDBACK COLLECTION =====
+    // Anyone authenticated can read feedback
+    // Only receivers can submit feedback for delivered requests
+    // Only donors can resolve their own feedback
+    match /feedback/{feedbackId} {
+      allow read: if isAuthenticated();
+      
+      allow create: if isAuthenticated() && 
+                       request.resource.data.receiverId == request.auth.uid &&
+                       get(/databases/$(database)/documents/foodRequests/$(request.resource.data.foodRequestId)).data.status == 'delivered';
+      
+      allow update: if isAuthenticated() && 
+                       (request.auth.uid == resource.data.donorId ||
+                        request.auth.uid == resource.data.receiverId ||
+                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      
+      allow delete: if isAuthenticated() && 
+                       (request.auth.uid == resource.data.receiverId ||
+                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+    }
+
+    // ===== COMMUNITY POSTS COLLECTION =====
+    // Anyone authenticated can read posts
+    // Anyone authenticated can create posts
+    // Only post author or admin can update/delete
+    match /communityPosts/{postId} {
+      allow read: if isAuthenticated();
+      
+      allow create: if isAuthenticated();
+      
+      allow update: if isAuthenticated() && 
+                       (isOwner(resource.data.authorId) ||
+                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      
+      allow delete: if isAuthenticated() && 
+                       (isOwner(resource.data.authorId) ||
+                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+    }
+
+    // ===== DELIVERIES COLLECTION (Optional) =====
+    // For tracking delivery status
+    match /deliveries/{deliveryId} {
+      allow read: if isAuthenticated();
+      
+      allow create: if isAuthenticated() && 
+                       (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['ngo', 'animal_shelter', 'compost_unit', 'admin']);
+      
+      allow update: if isAuthenticated() && 
+                       (isOwner(resource.data.volunteerId) ||
+                        isOwner(resource.data.receiverId) ||
+                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      
+      allow delete: if isAuthenticated() && 
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // ===== CATCH-ALL =====
+    // Deny all other access by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

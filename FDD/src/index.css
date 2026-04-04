@@ -1,22 +1,13 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
+
 :root {
   --primary: #16a34a;
   --primary-dark: #15803d;
   --primary-light: #4ade80;
   --accent: #f59e0b;
   --accent-dark: #d97706;
-  --bg-primary: #F9FAFB;
-  --bg-card: #FFFFFF;
-  --bg-card2: #F8F9FA;
-  --border: #E5E7EB;
-  --text-primary: #111827;
-  --text-secondary: #4B5563;
-  --text-muted: #6B7280;
-}
-
-.dark {
-  --bg-primary: #0a0f0d;
+  --bg-dark: #0a0f0d;
   --bg-card: #111916;
   --bg-card2: #1a2520;
   --border: rgba(74, 222, 128, 0.15);
@@ -31,7 +22,7 @@
 
 body {
   font-family: 'Inter', sans-serif;
-  background-color: var(--bg-primary);
+  background-color: var(--bg-dark);
   color: var(--text-primary);
   margin: 0;
   padding: 0;
@@ -54,14 +45,10 @@ body {
 
 /* Glassmorphism card */
 .glass {
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(17, 25, 22, 0.7);
   backdrop-filter: blur(16px);
   border: 1px solid var(--border);
   border-radius: 16px;
-}
-
-.dark .glass {
-  background: rgba(17, 25, 22, 0.7);
 }
 
 /* Glow effect */
@@ -141,18 +128,18 @@ body {
 
 /* Light theme overrides */
 html.light {
-  --primary: #047857;
-  --primary-dark: #065f46;
-  --primary-light: #6ee7b7;
-  --accent: #d97706;
-  --accent-dark: #b45309;
-  --bg-dark: #f4faf7;
+  --primary: #16a34a;
+  --primary-dark: #15803d;
+  --primary-light: #4ade80;
+  --accent: #2563eb;
+  --accent-dark: #1d4ed8;
+  --bg-dark: #f9fafb;
   --bg-card: #ffffff;
-  --bg-card2: #edf7ee;
-  --border: rgba(16, 185, 129, 0.2);
-  --text-primary: #08331e;
-  --text-secondary: #166534;
-  --text-muted: #4d7c63;
+  --bg-card2: #f3f4f6;
+  --border: #e5e7eb;
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-muted: #6b7280;
 }
 
 html.light body {
@@ -175,8 +162,8 @@ html.light .text-white {
 
 html.light .text-green-300,
 html.light .text-green-400,
-html.light .text-green-300/60,
-html.light .text-green-400/60 {
+html.light .text-green-300\/60,
+html.light .text-green-400\/60 {
   color: var(--text-secondary);
 }
 
@@ -189,7 +176,7 @@ html.light .text-blue-400 {
 }
 
 html.light .text-red-400,
-html.light .text-red-400/70 {
+html.light .text-red-400\/70 {
   color: #dc2626;
 }
 
@@ -201,32 +188,32 @@ html.light .bg-green-500 {
   background-color: var(--primary-dark);
 }
 
-html.light .border-green-500/20,
-html.light .border-green-500/30,
-html.light .border-green-500/40 {
+html.light .border-green-500\/20,
+html.light .border-green-500\/30,
+html.light .border-green-500\/40 {
   border-color: var(--border);
 }
 
-html.light .bg-green-500/10,
-html.light .bg-green-500/20,
-html.light .bg-green-500/30 {
+html.light .bg-green-500\/10,
+html.light .bg-green-500\/20,
+html.light .bg-green-500\/30 {
   background-color: rgba(16, 185, 129, 0.1);
 }
 
-html.light .bg-amber-500/10,
-html.light .bg-amber-500/20 {
+html.light .bg-amber-500\/10,
+html.light .bg-amber-500\/20 {
   background-color: rgba(245, 158, 11, 0.1);
 }
 
-html.light .bg-blue-500/10,
-html.light .bg-blue-500/20 {
+html.light .bg-blue-500\/10,
+html.light .bg-blue-500\/20 {
   background-color: rgba(59, 130, 246, 0.1);
 }
 
 html.light .hero-bg {
   background: radial-gradient(ellipse at top left, rgba(16, 185, 129, 0.1) 0%, transparent 50%),
-              radial-gradient(ellipse at bottom right, rgba(245, 158, 11, 0.05) 0%, transparent 50%),
-              var(--bg-dark);
+    radial-gradient(ellipse at bottom right, rgba(245, 158, 11, 0.05) 0%, transparent 50%),
+    var(--bg-dark);
 }
 
 html.light ::-webkit-scrollbar-track {
@@ -243,8 +230,13 @@ html.light .bg-black\/30 {
 }
 
 @keyframes marquee {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-50%);
+  }
 }
 
 .carousel-container {
@@ -260,18 +252,49 @@ html.light .bg-black\/30 {
 
 /* Floating plate animations */
 @keyframes float-plate-1 {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(-20px) rotate(5deg); }
-}
-@keyframes float-plate-2 {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(15px) rotate(-8deg); }
-}
-@keyframes float-plate-3 {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(-10px) rotate(10deg); }
+
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+
+  50% {
+    transform: translateY(-20px) rotate(5deg);
+  }
 }
 
-.animate-float-1 { animation: float-plate-1 8s ease-in-out infinite; }
-.animate-float-2 { animation: float-plate-2 9s ease-in-out infinite; }
-.animate-float-3 { animation: float-plate-3 10s ease-in-out infinite; }
+@keyframes float-plate-2 {
+
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+
+  50% {
+    transform: translateY(15px) rotate(-8deg);
+  }
+}
+
+@keyframes float-plate-3 {
+
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+
+  50% {
+    transform: translateY(-10px) rotate(10deg);
+  }
+}
+
+.animate-float-1 {
+  animation: float-plate-1 8s ease-in-out infinite;
+}
+
+.animate-float-2 {
+  animation: float-plate-2 9s ease-in-out infinite;
+}
+
+.animate-float-3 {
+  animation: float-plate-3 10s ease-in-out infinite;
+}
