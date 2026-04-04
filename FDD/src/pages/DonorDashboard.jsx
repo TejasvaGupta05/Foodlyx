@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
-import { Plus, Package, Clock, MapPin, Zap, TrendingUp, CheckCircle, AlertCircle, Upload, Image as ImageIcon } from 'lucide-react';
+import { Plus, Package, Clock, MapPin, Zap, TrendingUp, CheckCircle, AlertCircle, Upload, Image as ImageIcon, MessageSquare } from 'lucide-react';
 import StatusBadge from '../components/StatusBadge';
+import FeedbackDisplay from '../components/FeedbackDisplay';
 
 const urgencyOpts = ['low', 'medium', 'high'];
 
@@ -14,6 +15,7 @@ export default function DonorDashboard() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
+  const [feedbacks, setFeedbacks] = useState([]);
   const [form, setForm] = useState({
     donorCategory: 'mess',
     donorBusinessName: user?.name || '',
@@ -48,7 +50,16 @@ export default function DonorDashboard() {
     } catch { } finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchRequests(); }, []);
+  const fetchFeedbacks = async () => {
+    try {
+      const { data } = await api.get(`/feedback/donor/${user?._id}`);
+      setFeedbacks(data);
+    } catch (error) {
+      console.error('Failed to fetch feedbacks:', error);
+    }
+  };
+
+  useEffect(() => { fetchRequests(); fetchFeedbacks(); }, []);
 
   useEffect(() => {
     if (!form.preparationDate || !form.preparationTime || !form.foodUsabilityCategory) {
@@ -179,11 +190,10 @@ export default function DonorDashboard() {
     } finally { setSubmitting(false); }
   };
 
-  const stats = {
-    total: requests.length,
-    delivered: requests.filter(r => r.status === 'delivered').length,
-    pending: requests.filter(r => r.status === 'pending').length,
-    impact: user?.impactScore || 0,
+  const handleResolveFeedback = (feedbackId) => {
+    setFeedbacks(feedbacks.map(f => f._id === feedbackId ? { ...f, resolutionStatus: 'resolved' } : f));
+    setSuccess('Feedback resolved successfully!');
+    setTimeout(() => setSuccess(''), 3000);
   };
 
   return (
@@ -218,6 +228,25 @@ export default function DonorDashboard() {
             </div>
           ))}
         </div>
+
+        {/* Feedback Section */}
+        {feedbacks.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+              <MessageSquare className="w-5 h-5 text-green-400" />
+              Feedback & Complaints
+            </h2>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {feedbacks.map(feedback => (
+                <FeedbackDisplay
+                  key={feedback._id}
+                  feedback={feedback}
+                  onResolve={handleResolveFeedback}
+                />
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Alerts */}
         {success && <div className="flex items-center gap-2 p-3 bg-green-500/10 border border-green-500/30 rounded-lg text-green-400 text-sm mb-6"><CheckCircle className="w-4 h-4" />{success}</div>}

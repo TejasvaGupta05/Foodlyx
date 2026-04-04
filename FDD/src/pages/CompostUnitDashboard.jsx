@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
-import { Truck, Sprout, Recycle, Trash2 } from 'lucide-react';
+import { Truck, Sprout, Recycle, Trash2, MessageSquare } from 'lucide-react';
 import FoodCard from '../components/FoodCard';
+import FeedbackForm from '../components/FeedbackForm';
+import FeedbackDisplay from '../components/FeedbackDisplay';
 
 export default function CompostUnitDashboard() {
   const { user } = useAuth();
@@ -14,6 +16,9 @@ export default function CompostUnitDashboard() {
   const [filters, setFilters] = useState({ category: 'non_edible', urgency: '' });
   const [tab, setTab] = useState('available');
   const [toast, setToast] = useState('');
+  const [feedbacks, setFeedbacks] = useState([]);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState(null);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
 
@@ -37,7 +42,16 @@ export default function CompostUnitDashboard() {
     } catch { } finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchRequests(); }, [filters]);
+  const fetchFeedbacks = async () => {
+    try {
+      const { data } = await api.get(`/feedback/receiver/${user?._id}`);
+      setFeedbacks(data);
+    } catch (error) {
+      console.error('Failed to fetch feedbacks:', error);
+    }
+  };
+
+  useEffect(() => { fetchRequests(); fetchFeedbacks(); }, [filters]);
 
   const handleAccept = async (id) => {
     try {
@@ -55,6 +69,21 @@ export default function CompostUnitDashboard() {
       showToast('Dumped to Composter!');
       fetchRequests();
     } catch { }
+  };
+
+  const openFeedbackModal = (request) => {
+    setSelectedRequest(request);
+    setShowFeedbackModal(true);
+  };
+
+  const handleFeedbackSubmit = () => {
+    fetchFeedbacks();
+    showToast('Feedback submitted successfully!');
+  };
+
+  const handleResolveFeedback = (feedbackId) => {
+    setFeedbacks(feedbacks.map(f => f._id === feedbackId ? { ...f, resolutionStatus: 'resolved' } : f));
+    showToast('Feedback resolved!');
   };
 
   return (
@@ -92,11 +121,12 @@ export default function CompostUnitDashboard() {
 
         {/* Tabs */}
         <div className="flex gap-2 mb-6 border-b border-stone-800/80 pb-4">
-          {['waste sonar', 'active hauling'].map(t => {
-            const mappedTab = t === 'waste sonar' ? 'available' : 'accepted';
+          {['waste sonar', 'active hauling', 'feedback'].map(t => {
+            const mappedTab = t === 'waste sonar' ? 'available' : t === 'active hauling' ? 'accepted' : 'feedback';
             return (
                <button key={t} onClick={() => setTab(mappedTab)}
-                  className={`px-4 py-2 rounded-lg text-sm font-bold transition-all uppercase tracking-wider ${tab === mappedTab ? 'bg-stone-700 text-lime-400 border border-lime-500/30 shadow-[0_0_15px_rgba(101,163,13,0.15)]' : 'glass text-stone-500/80 hover:text-stone-300'}`}>
+                  className={`px-4 py-2 rounded-lg text-sm font-bold transition-all uppercase tracking-wider flex items-center gap-2 ${tab === mappedTab ? 'bg-stone-700 text-lime-400 border border-lime-500/30 shadow-[0_0_15px_rgba(101,163,13,0.15)]' : 'glass text-stone-500/80 hover:text-stone-300'}`}>
+                  {t === 'feedback' && <MessageSquare className="w-4 h-4" />}
                   {t}
                </button>
             )
@@ -164,7 +194,55 @@ export default function CompostUnitDashboard() {
             ))}
           </div>
         )}
+
+        {tab === 'feedback' && (
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-semibold text-white">Feedback & Complaints</h2>
+              <button
+                onClick={() => {
+                  const deliveredRequests = myRequests.filter(r => r.status === 'delivered');
+                  if (deliveredRequests.length === 0) {
+                    showToast('No delivered requests to feedback on');
+                    return;
+                  }
+                  openFeedbackModal(deliveredRequests[0]);
+                }}
+                className="px-4 py-2 bg-stone-700 hover:bg-stone-600 text-lime-400 rounded-lg transition-colors border border-lime-500/30"
+              >
+                Submit Feedback
+              </button>
+            </div>
+
+            {feedbacks.length === 0 ? (
+              <div className="text-center text-stone-600/50 py-20">No feedback submitted yet.</div>
+            ) : (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {feedbacks.map(feedback => (
+                  <FeedbackDisplay
+                    key={feedback._id}
+                    feedback={feedback}
+                    onResolve={handleResolveFeedback}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Feedback Modal */}
+      {showFeedbackModal && selectedRequest && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <FeedbackForm
+            foodRequestId={selectedRequest._id}
+            deliveryId={selectedRequest.deliveryId}
+            facilityName={selectedRequest.donorDetails?.businessName || selectedRequest.donorId?.name || ''}
+            onSubmit={handleFeedbackSubmit}
+            onClose={() => setShowFeedbackModal(false)}
+          />
+        </div>
+      )}
     </div>
   );
 }

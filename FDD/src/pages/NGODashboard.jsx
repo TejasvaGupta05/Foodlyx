@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import api from '../api/axios';
-import { Filter, MapPin, Package, CheckCircle, AlertCircle, Truck } from 'lucide-react';
+import { Filter, MapPin, Package, CheckCircle, AlertCircle, Truck, MessageSquare } from 'lucide-react';
 import FoodCard from '../components/FoodCard';
+import FeedbackForm from '../components/FeedbackForm';
+import FeedbackDisplay from '../components/FeedbackDisplay';
 
 export default function NGODashboard() {
   const { user } = useAuth();
@@ -14,6 +16,9 @@ export default function NGODashboard() {
   const [filters, setFilters] = useState({ category: '', urgency: '' });
   const [tab, setTab] = useState('available');
   const [toast, setToast] = useState('');
+  const [feedbacks, setFeedbacks] = useState([]);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState(null);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
 
@@ -30,7 +35,16 @@ export default function NGODashboard() {
     } catch { } finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchRequests(); }, [filters]);
+  const fetchFeedbacks = async () => {
+    try {
+      const { data } = await api.get(`/feedback/receiver/${user?._id}`);
+      setFeedbacks(data);
+    } catch (error) {
+      console.error('Failed to fetch feedbacks:', error);
+    }
+  };
+
+  useEffect(() => { fetchRequests(); fetchFeedbacks(); }, [filters]);
 
   useEffect(() => {
     if (!socket) return;
@@ -60,6 +74,21 @@ export default function NGODashboard() {
     } catch { }
   };
 
+  const openFeedbackModal = (request) => {
+    setSelectedRequest(request);
+    setShowFeedbackModal(true);
+  };
+
+  const handleFeedbackSubmit = () => {
+    fetchFeedbacks();
+    showToast('Feedback submitted successfully!');
+  };
+
+  const handleResolveFeedback = (feedbackId) => {
+    setFeedbacks(feedbacks.map(f => f._id === feedbackId ? { ...f, resolutionStatus: 'resolved' } : f));
+    showToast('Feedback resolved!');
+  };
+
   return (
     <div className="min-h-screen pt-20 pb-16 px-4">
       <div className="max-w-5xl mx-auto">
@@ -81,9 +110,10 @@ export default function NGODashboard() {
 
         {/* Tabs */}
         <div className="flex gap-2 mb-6 border-b border-green-900/30 pb-4">
-          {['available', 'accepted'].map(t => (
+          {['available', 'accepted', 'feedback'].map(t => (
             <button key={t} onClick={() => setTab(t)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all capitalize ${tab === t ? 'bg-green-600 text-white' : 'glass text-green-400/60 hover:text-green-400'}`}>
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all capitalize flex items-center gap-2 ${tab === t ? 'bg-green-600 text-white' : 'glass text-green-400/60 hover:text-green-400'}`}>
+              {t === 'feedback' && <MessageSquare className="w-4 h-4" />}
               {t}
             </button>
           ))}
@@ -136,7 +166,57 @@ export default function NGODashboard() {
             ))}
           </div>
         )}
+
+        {tab === 'feedback' && (
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-semibold text-white">Feedback & Complaints</h2>
+              <button
+                onClick={() => {
+                  const deliveredRequests = myRequests.filter(r => r.status === 'delivered');
+                  if (deliveredRequests.length === 0) {
+                    showToast('No delivered requests to feedback on');
+                    return;
+                  }
+                  // For simplicity, open modal for the first delivered request
+                  // In a real app, you might want to select which one
+                  openFeedbackModal(deliveredRequests[0]);
+                }}
+                className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg transition-colors"
+              >
+                Submit Feedback
+              </button>
+            </div>
+
+            {feedbacks.length === 0 ? (
+              <div className="text-center text-green-400/40 py-20">No feedback submitted yet.</div>
+            ) : (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {feedbacks.map(feedback => (
+                  <FeedbackDisplay
+                    key={feedback._id}
+                    feedback={feedback}
+                    onResolve={handleResolveFeedback}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Feedback Modal */}
+      {showFeedbackModal && selectedRequest && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <FeedbackForm
+            foodRequestId={selectedRequest._id}
+            deliveryId={selectedRequest.deliveryId}
+            facilityName={selectedRequest.donorDetails?.businessName || selectedRequest.donorId?.name || ''}
+            onSubmit={handleFeedbackSubmit}
+            onClose={() => setShowFeedbackModal(false)}
+          />
+        </div>
+      )}
     </div>
   );
 }
